@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "afaa"
+version = "1.0.0"
+description = "أفعى: لغة برمجة عربية مطابقة لبايثون في قواعدها وخصائصها"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+keywords = ["arabic", "programming-language", "python", "education", "عربي"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Natural Language :: Arabic",
+    "Topic :: Software Development :: Interpreters",
+    "Topic :: Education",
+]
+
+[project.scripts]
+afaa = "afaa.cli:main"
+
+[tool.setuptools]
+packages = ["afaa"]
