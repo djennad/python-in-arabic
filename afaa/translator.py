@@ -28,7 +28,8 @@ _DIGITS[ord("٬")] = "_"   # فاصل الآلاف العربي
 
 _PUNCTUATION = {"،": ",", "؛": ";", "٪": "%"}
 
-_STRING_PREFIXES = {"r", "u", "b", "f", "br", "rb", "fr", "rf"}
+# t و tr و rt: نصوص القوالب في بايثون 3.14
+_STRING_PREFIXES = {"r", "u", "b", "f", "t", "br", "rb", "fr", "rf", "tr", "rt"}
 
 
 class _Direction:
@@ -146,7 +147,7 @@ def _scan_string(src, i, prefix, direction):
     triple = src.startswith(quote * 3, i)
     delim = quote * 3 if triple else quote
     j = i + len(delim)
-    is_f = "f" in prefix
+    is_f = "f" in prefix or "t" in prefix
     is_raw = "r" in prefix
     parts = [delim]
     while j < n:
