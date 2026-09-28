@@ -61,6 +61,9 @@ class TranslatorTests(unittest.TestCase):
         self.assertEqual(translate('f"{طول(س)!r:>{عرض}} و {صح}"'),
                          'f"{len(س)!r:>{عرض}} و {True}"')
 
+    def test_template_string_expressions_translated(self):
+        self.assertEqual(translate('t"{طول(س)} {٢}"'), 't"{len(س)} {2}"')
+
     def test_main_string(self):
         self.assertEqual(translate('إذا __اسم__ == "__رئيسي__":'),
                          'if __name__ == "__main__":')
@@ -425,7 +428,7 @@ class ImportAndCliTests(unittest.TestCase):
         for name in sorted(os.listdir(examples)):
             if name.endswith(".af"):
                 with self.subTest(name=name):
-                    result = self.cli(os.path.join(examples, name), stdin="")
+                    result = self.cli(os.path.join(examples, name), stdin="50\n" * 10)
                     self.assertEqual(result.returncode, 0, result.stderr)
 
 

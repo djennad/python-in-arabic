@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ساحة أفعى</title>
+  <meta name="description" content="محرر ويب للغة أفعى: اكتب بالعربية وشغّل برامجك مباشرة في المتصفح">
+  <!-- يضيف ترويسات عزل الأصل على GitHub Pages لدعم «أدخل()» -->
+  <script src="coi-serviceworker.js"></script>
+  <script>
+    // نطبّق السمة المحفوظة قبل رسم الصفحة لتجنب الوميض
+    try {
+      const theme = localStorage.getItem("afaa:theme");
+      if (theme) document.documentElement.dataset.theme = theme;
+    } catch (e) {}
+  </script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="favicon.svg" alt="" width="28" height="28">
+      <div>
+        <h1>ساحة أفعى</h1>
+        <span class="tagline">اكتب بالعربية، وشغّل مباشرة</span>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="run" class="primary" disabled title="تشغيل (Ctrl+Enter)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 5v14L6 12z"/></svg>
+        <span>تشغيل</span>
+      </button>
+      <button id="stop" class="danger" hidden title="إيقاف البرنامج">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+        <span>إيقاف</span>
+      </button>
+      <label class="select">
+        <span class="visually-hidden">الأمثلة</span>
+        <select id="examples">
+          <option value="">📂 الأمثلة</option>
+        </select>
+      </label>
+      <button id="share" class="ghost" title="نسخ رابط يحتوي البرنامج">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>مشاركة</span>
+      </button>
+      <button id="theme" class="ghost icon-only" title="تبديل الوضع الفاتح/الداكن" aria-label="تبديل الوضع الفاتح/الداكن">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="pane editor-pane" aria-label="المحرر">
+      <div class="pane-head">
+        <span class="pane-title">البرنامج</span>
+        <span id="status" class="status loading"><span class="dot"></span><span id="status-text">جارٍ التحميل…</span></span>
+      </div>
+      <div id="editor" class="editor"></div>
+    </section>
+
+    <section class="pane output-pane" aria-label="النتائج">
+      <div class="pane-head tabs" role="tablist">
+        <button role="tab" id="tab-output" class="tab active" aria-selected="true" aria-controls="output">المخرجات</button>
+        <button role="tab" id="tab-python" class="tab" aria-selected="false" aria-controls="python">بايثون المقابل</button>
+        <button id="clear" class="ghost small" title="مسح المخرجات">مسح</button>
+      </div>
+      <div id="output" class="console" role="log" aria-live="polite">
+        <div class="placeholder">اضغط «تشغيل» أو Ctrl+Enter لتنفيذ البرنامج.</div>
+      </div>
+      <form id="input-row" class="input-row" hidden>
+        <span class="input-label">⌨ إدخال:</span>
+        <input id="input" autocomplete="off" dir="auto" aria-label="إدخال البرنامج">
+        <button type="submit" class="primary small">إرسال</button>
+      </form>
+      <div id="python" class="python-view" hidden></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span id="version"></span>
+    <a href="https://github.com/djennad/python-in-arabic" target="_blank" rel="noopener">المستودع على GitHub</a>
+    <a href="https://github.com/djennad/python-in-arabic/blob/main/docs/vocabulary.md" target="_blank" rel="noopener">القاموس</a>
+  </footer>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
