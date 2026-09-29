@@ -84,7 +84,11 @@ def reset():
 
 
 def call_handler(func, *args):
-    """يستدعي دالة المستخدم بعدد المعاملات الذي تقبله (صفر أو أكثر)."""
+    """يستدعي دالة المستخدم بعدد المعاملات المطلوبة فيها (صفر أو أكثر).
+
+    المعاملات ذات القيم الافتراضية لا تُملأ، فيعمل النمط المعتاد لالتقاط متغير
+    الحلقة: زر("احذف"، لامدا م=م: احذف(م))
+    """
     try:
         params = inspect.signature(func).parameters.values()
     except (TypeError, ValueError):
@@ -92,7 +96,8 @@ def call_handler(func, *args):
     if any(p.kind is p.VAR_POSITIONAL for p in params):
         return func(*args)
     count = sum(1 for p in params
-                if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD))
+                if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+                and p.default is p.empty)
     return func(*args[:count])
 
 
