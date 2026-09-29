@@ -5,6 +5,7 @@ import io
 import json
 import os
 import sys
+import tempfile
 import textwrap
 import unittest
 
@@ -25,9 +26,16 @@ class GuiTestCase(unittest.TestCase):
         gui_bridge.flush()
 
     def run_app(self, code):
+        # في مجلد مؤقت: البرامج التي تنشئ قواعد بيانات لا تترك ملفات في المستودع
         out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            namespace = run_source(textwrap.dedent(code), module_name="__afaa_gui_test__")
+        previous = os.getcwd()
+        with tempfile.TemporaryDirectory() as folder:
+            os.chdir(folder)
+            try:
+                with contextlib.redirect_stdout(out):
+                    namespace = run_source(textwrap.dedent(code), module_name="__afaa_gui_test__")
+            finally:
+                os.chdir(previous)
         self.output = out.getvalue()
         return namespace
 
@@ -155,6 +163,28 @@ class WidgetTests(GuiTestCase):
         create, update = self.ops()
         self.assertEqual(create["props"]["rows"], [["علي", "30"]])
         self.assertEqual(update["props"]["rows"], [["علي", "30"], ["سارة", "28"]])
+
+    def test_table_from_query_rows(self):
+        self.run_app("""
+            من واجهات استورد *
+            من قواعد_البيانات استورد قاعدة_بيانات
+            ق = قاعدة_بيانات()
+            ق.نفذ("أنشئ جدول ط (الاسم نص، العمر عدد_صحيح، الهاتف نص)")
+            ق.نفذ("أدخل إلى ط (الاسم، العمر) القيم ('أحمد'، ١٦)")
+            ج = جدول(ق.استعلم("اختر * من ط"))
+            ق.نفذ("أدخل إلى ط (الاسم، العمر) القيم ('سارة'، ١٥)")
+            ج.اعرض(ق.استعلم("اختر * من ط رتب حسب العمر"))
+            ج.أضف_صفا({"الاسم": "يوسف"، "العمر": ١٧})
+            فارغ_ = جدول([])
+            فارغ_.اعرض(ق.استعلم("اختر الاسم من ط"))
+        """)
+        create, show, add, empty, columns, rows = self.ops()
+        self.assertEqual(create["props"]["columns"], ["الاسم", "العمر", "الهاتف"])
+        self.assertEqual(create["props"]["rows"], [["أحمد", "16", ""]])
+        self.assertEqual(show["props"]["rows"], [["سارة", "15", ""], ["أحمد", "16", ""]])
+        self.assertEqual(add["props"]["rows"][-1], ["يوسف", "17", ""])
+        self.assertEqual(columns["props"], {"columns": ["الاسم"]})
+        self.assertEqual(rows["props"]["rows"], [["أحمد"], ["سارة"]])
 
     def test_remove(self):
         self.run_app("""

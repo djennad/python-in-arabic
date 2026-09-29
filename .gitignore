@@ -7,3 +7,5 @@ dist/
 node_modules/
 web/dist/
 web/screenshots/
+*.db
+*.db-journal
