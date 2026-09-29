@@ -75,6 +75,7 @@ def _closure(packages, roots):
 
 def _pyodide_subset(cache):
     """يعيد مجلدا فيه نواة Pyodide والحزم المطلوبة (مستخرجة من التوزيعة مرة واحدة)."""
+    os.makedirs(cache, exist_ok=True)
     target = os.path.join(cache, f"pyodide-{PYODIDE_VERSION}-streamlit")
     marker = os.path.join(target, ".complete")
     if os.path.exists(marker):
