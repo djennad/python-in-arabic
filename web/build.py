@@ -24,6 +24,9 @@ MODULES = os.path.join(WEB, "node_modules")
 
 sys.path.insert(0, ROOT)
 from afaa import __version__, vocabulary  # noqa: E402
+from streamlit_build import build_streamlit_runtime  # noqa: E402
+
+CACHE = os.path.join(WEB, ".cache")
 
 PYODIDE_FILES = [
     "pyodide.mjs", "pyodide.asm.mjs", "pyodide.asm.wasm",
@@ -57,8 +60,10 @@ def build_vocabulary():
 
 
 EXAMPLE_ORDER = ["hello.af", "guess.af", "primes.af", "bank.af", "database.af", "orm.af", "tour.af",
-                 "counter.af", "calculator.af", "todo.af", "students.af", "notes.af", "drawing.af", "clock.af"]
-EXAMPLE_GROUPS = [("", "أمثلة اللغة"), ("gui", "تطبيقات الواجهات")]
+                 "counter.af", "calculator.af", "todo.af", "students.af", "notes.af", "drawing.af", "clock.af",
+                 "dashboard.af", "chat.af"]
+EXAMPLE_GROUPS = [("", "أمثلة اللغة"), ("gui", "تطبيقات الواجهات"),
+                  ("streamlit", "مواقع ستريمليت")]
 
 
 def build_examples():
@@ -93,15 +98,32 @@ def write_json(path, data):
         json.dump(data, fh, ensure_ascii=False, separators=(",", ":"))
 
 
-def standalone_manifest():
-    """الملفات التي يحتاجها تطبيق مستقل مُصدَّر (يستخدمها زر «تصدير كموقع»)."""
-    files = [{"from": "app.html", "to": "index.html"}]
-    for name in ("app.js", "app.css", "worker.js", "coi-serviceworker.js", "favicon.svg", "afaa.zip"):
-        files.append({"from": name, "to": name})
-    for folder in ("chunks", "fonts", "pyodide"):
-        for name in sorted(os.listdir(os.path.join(DIST, folder))):
+def _folder_files(folder):
+    files = []
+    for current, _dirs, names in os.walk(os.path.join(DIST, folder)):
+        for name in sorted(names):
             if not name.endswith(".map"):
-                files.append({"from": f"{folder}/{name}", "to": f"{folder}/{name}"})
+                path = os.path.relpath(os.path.join(current, name), DIST).replace(os.sep, "/")
+                files.append({"from": path, "to": path})
+    return files
+
+
+def standalone_manifest(kind="app"):
+    """الملفات التي يحتاجها تطبيق مستقل مُصدَّر (يستخدمها زر «تصدير كموقع»).
+
+    kind: «app» لتطبيقات «واجهات» والبرامج العادية، و«streamlit» لتطبيقات ستريمليت.
+    """
+    if kind == "streamlit":
+        files = [{"from": "streamlit.html", "to": "index.html"}]
+        names = ("streamlit-app.js", "streamlit.css", "coi-serviceworker.js", "favicon.svg", "afaa.zip")
+        folders = ("chunks", "fonts", "streamlit")
+    else:
+        files = [{"from": "app.html", "to": "index.html"}]
+        names = ("app.js", "app.css", "worker.js", "coi-serviceworker.js", "favicon.svg", "afaa.zip")
+        folders = ("chunks", "fonts", "pyodide")
+    files += [{"from": name, "to": name} for name in names]
+    for folder in folders:
+        files += _folder_files(folder)
     return files
 
 
@@ -117,20 +139,21 @@ def build():
     # main.js: المحرر، app.js: التطبيق المستقل. الأجزاء المشتركة في chunks/
     subprocess.run([
         esbuild, os.path.join(WEB, "src", "main.js"), os.path.join(WEB, "src", "app.js"),
+        os.path.join(WEB, "src", "streamlit-app.js"),
         "--bundle", "--format=esm", "--splitting", "--minify", "--sourcemap",
         "--target=es2022", f"--outdir={DIST}", "--entry-names=[name]",
         "--chunk-names=chunks/[name]-[hash]",
     ], check=True)
 
     # الأنماط مع الخطوط (تُستضاف محليًا بدل Google Fonts)
-    for name in ("style.css", "app.css"):
+    for name in ("style.css", "app.css", "streamlit.css"):
         subprocess.run([
             esbuild, os.path.join(WEB, "src", name), "--bundle", "--minify",
             "--loader:.woff2=file", "--loader:.woff=file", "--asset-names=fonts/[name]-[hash]",
             f"--outfile={os.path.join(DIST, name)}",
         ], check=True)
 
-    for name in ("index.html", "app.html", "favicon.svg"):
+    for name in ("index.html", "app.html", "streamlit.html", "favicon.svg"):
         shutil.copy(os.path.join(WEB, name), DIST)
     shutil.copy(os.path.join(WEB, "src", "worker.js"), DIST)
     shutil.copy(os.path.join(MODULES, "coi-serviceworker", "coi-serviceworker.min.js"),
@@ -141,7 +164,10 @@ def build():
     build_package_zip(os.path.join(DIST, "afaa.zip"))
     write_json(os.path.join(DIST, "vocabulary.json"), build_vocabulary())
     write_json(os.path.join(DIST, "examples.json"), build_examples())
+    # ستريمليت في المتصفح (stlite) مع Pyodide 0.29.3 مصغّر
+    build_streamlit_runtime(DIST, MODULES, CACHE)
     write_json(os.path.join(DIST, "standalone.json"), standalone_manifest())
+    write_json(os.path.join(DIST, "standalone-streamlit.json"), standalone_manifest("streamlit"))
     # يمنع GitHub Pages من معالجة الملفات بـ Jekyll
     open(os.path.join(DIST, ".nojekyll"), "w").close()
     print(f"تم البناء في {DIST}")

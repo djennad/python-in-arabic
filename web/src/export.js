@@ -6,7 +6,10 @@ import { zipSync, strToU8 } from "fflate";
 // الملفات المضغوطة أصلًا لا فائدة من ضغطها مرة أخرى
 const STORED = /\.(zip|woff2?|png|jpe?g)$/i;
 
-function readme(title) {
+function readme(title, kind) {
+  const runtime = kind === "streamlit"
+    ? "streamlit/    بايثون ومكتبة ستريمليت للمتصفح (stlite).\nafaa.zip      لغة أفعى ومكتبة «ستريمليت» العربية."
+    : "pyodide/      بايثون للمتصفح.\nafaa.zip      لغة أفعى ومكتبة «واجهات».";
   return `${title}
 ${"=".repeat(Math.max(title.length, 10))}
 
@@ -17,8 +20,7 @@ ${"=".repeat(Math.max(title.length, 10))}
 -------
 program.af    برنامجك. عدّله ثم أعد رفع الموقع لتحديث التطبيق.
 index.html    صفحة التطبيق.
-pyodide/      بايثون للمتصفح.
-afaa.zip      لغة أفعى ومكتبة «واجهات».
+${runtime}
 
 التجربة على جهازك
 -----------------
@@ -46,8 +48,8 @@ function fileName(title) {
   return `${clean || "تطبيق-أفعى"}.zip`;
 }
 
-export async function exportSite(code, title) {
-  const manifest = await (await fetch("standalone.json")).json();
+export async function exportSite(code, title, kind = "app") {
+  const manifest = await (await fetch(kind === "streamlit" ? "standalone-streamlit.json" : "standalone.json")).json();
   const files = {};
   await Promise.all(manifest.map(async ({ from, to }) => {
     const response = await fetch(from);
@@ -66,7 +68,7 @@ export async function exportSite(code, title) {
     editor: new URL("./", location.href).href,
     title: appTitle,
   }, null, 2));
-  files["اقرأني.txt"] = strToU8(readme(appTitle));
+  files["اقرأني.txt"] = strToU8(readme(appTitle, kind));
   files[".nojekyll"] = new Uint8Array();
 
   const zip = zipSync(files, { level: 6 });

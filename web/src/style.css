@@ -198,6 +198,10 @@ button:not(.ui-button).icon-only { padding: 0 9px; }
   white-space: pre-wrap;
   color: var(--text);
 }
+/* تطبيقات ستريمليت تعمل في إطار يملأ مساحة الواجهة */
+.ui-panel.streamlit .ui-surface { padding: 0; overflow: hidden; }
+.ui-panel.streamlit .ui-root { display: none; }
+.streamlit-frame { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
 .ui-panel.stopped .ui-root { opacity: 0.45; pointer-events: none; filter: grayscale(0.6); }
 .status.live .dot { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); }
 .python-view .cm-editor { height: 100%; }

@@ -216,9 +216,67 @@ const runtime = new Runtime({
   onTranslated: (python) => showPython(python),
 });
 
+// ---------------------------------------------------------------------------
+// تطبيقات «ستريمليت»: تعمل في إطار مستقل (streamlit.html) ببيئة Streamlit خاصة بها.
+// أول تشغيل يحمّل البيئة، والتشغيلات التالية تحدّث التطبيق نفسه خلال أقل من ثانية.
+// ---------------------------------------------------------------------------
+const STREAMLIT_IMPORT = /^[ \t]*(?:استورد|إستورد|من)[ \t]+ستريمليت(?![\p{L}\p{N}_])/mu;
+const isStreamlit = (code) => STREAMLIT_IMPORT.test(code);
+let streamlitFrame = null;
+let streamlitReady = null;
+
+function runStreamlit(code) {
+  output.clear();
+  resetUi();
+  view.dispatch({ effects: setErrorLine.of(null) });
+  if (!streamlitFrame) {
+    streamlitFrame = document.createElement("iframe");
+    streamlitFrame.className = "streamlit-frame";
+    streamlitFrame.title = "تطبيق ستريمليت";
+    streamlitReady = new Promise((resolve) => {
+      const onMessage = (event) => {
+        if (event.source === streamlitFrame?.contentWindow && event.data?.type === "afaa-streamlit-ready") {
+          removeEventListener("message", onMessage);
+          resolve();
+        }
+      };
+      addEventListener("message", onMessage);
+    });
+    streamlitFrame.src = "streamlit.html?embed";
+    $("ui").classList.add("streamlit");
+    $("ui-empty").hidden = true;
+    uiRoot.after(streamlitFrame);
+  }
+  const frame = streamlitFrame;
+  streamlitReady.then(() => frame.contentWindow?.postMessage({ type: "afaa-streamlit-run", code }, location.origin));
+  $("ui-title").textContent = "ستريمليت";
+  selectTab("ui");
+  setStatus("تطبيق ستريمليت يعمل", "live");
+  output.meta("— تطبيق ستريمليت يعمل في لسان «الواجهة»، وأخطاؤه تظهر داخل التطبيق. "
+    + "التشغيل الأول يحمّل Streamlit وقد يستغرق دقيقة.");
+  $("run").hidden = false;
+  $("stop").hidden = false;
+}
+
+function closeStreamlit() {
+  if (!streamlitFrame) return false;
+  streamlitFrame.remove();
+  streamlitFrame = null;
+  streamlitReady = null;
+  $("ui").classList.remove("streamlit");
+  $("ui-empty").hidden = false;
+  return true;
+}
+
 function run() {
+  const code = view.state.doc.toString();
+  if (isStreamlit(code)) {
+    if (!runtime.running) runStreamlit(code);
+    return;
+  }
   if (!runtime.ready) return;
   if (runtime.running) return;
+  closeStreamlit();
   output.clear();
   resetUi();
   view.dispatch({ effects: setErrorLine.of(null) });
@@ -245,6 +303,12 @@ function finishRun(errorLine, duration, app) {
 }
 
 function stop() {
+  if (closeStreamlit()) {
+    output.meta("— أُوقف تطبيق ستريمليت");
+    setStatus(runtime.ready ? "جاهز" : "جارٍ التحميل…", runtime.ready ? "ready" : "loading");
+    setRunning(false);
+    return;
+  }
   if (!runtime.running && !runtime.appLive) return;
   const wasApp = runtime.appLive;
   runtime.stop();
@@ -449,22 +513,39 @@ $("share").addEventListener("click", async () => {
   copyLink(url, "نُسخ رابط البرنامج — أرسله لمن تريد");
 });
 
+// صفحة التطبيق المستقل: تطبيقات ستريمليت لها صفحتها وبيئتها الخاصة
+const appPage = (code) => (isStreamlit(code) ? "streamlit.html" : "app.html");
+
+// عنوان التطبيق: من «عنوان_الصفحة» في «واجهات» أو في اضبط_الصفحة لستريمليت
+function appTitle(code) {
+  if (isStreamlit(code)) {
+    const match = /عنوان_الصفحة\s*=\s*["«']([^"»'\n]+)/.exec(code);
+    return match ? match[1] : "";
+  }
+  return $("ui-title").textContent;
+}
+
 $("app-window").addEventListener("click", async () => {
-  window.open(await linkTo("app.html", view.state.doc.toString()), "_blank");
+  const code = view.state.doc.toString();
+  window.open(await linkTo(appPage(code), code), "_blank");
 });
 
 $("app-link").addEventListener("click", async () => {
-  copyLink(await linkTo("app.html", view.state.doc.toString()),
+  const code = view.state.doc.toString();
+  copyLink(await linkTo(appPage(code), code),
     "نُسخ رابط التطبيق — من يفتحه يرى التطبيق مباشرة دون المحرر");
 });
 
 $("app-export").addEventListener("click", async () => {
   const button = $("app-export");
+  const code = view.state.doc.toString();
   button.disabled = true;
-  showToast("جارٍ تجهيز الموقع للتنزيل…");
+  showToast(isStreamlit(code)
+    ? "جارٍ تجهيز الموقع للتنزيل… (تطبيقات ستريمليت أكبر حجمًا، قد يستغرق ذلك قليلًا)"
+    : "جارٍ تجهيز الموقع للتنزيل…");
   try {
     const { exportSite } = await import("./export.js");
-    const name = await exportSite(view.state.doc.toString(), $("ui-title").textContent);
+    const name = await exportSite(code, appTitle(code), isStreamlit(code) ? "streamlit" : "app");
     showToast(`نُزّل الملف ${name}`, "success");
   } catch (err) {
     console.error(err);

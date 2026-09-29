@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>تطبيق أفعى</title>
+  <meta name="description" content="تطبيق ويب مكتوب بلغة أفعى العربية ومكتبة ستريمليت">
+  <script src="coi-serviceworker.js"></script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="streamlit/stlite/stlite.css">
+  <link rel="stylesheet" href="streamlit.css">
+</head>
+<body>
+  <div id="loading" class="st-loading" role="status">
+    <div class="spinner" aria-hidden="true"></div>
+    <p id="loading-text">جارٍ تحميل التطبيق…</p>
+    <p class="st-loading-hint">التحميل الأول قد يستغرق دقيقة، ثم يصبح أسرع بكثير.</p>
+  </div>
+  <div id="root"></div>
+  <nav id="credits" class="st-credits" hidden>
+    <a id="made-with" href="https://djennad.github.io/python-in-arabic/" target="_blank" rel="noopener">صُنع بلغة أفعى 🐍</a>
+    <a id="view-source" href="#" target="_blank" rel="noopener">عرض الشيفرة</a>
+  </nav>
+  <script type="module" src="streamlit-app.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+/* تعريب مظهر Streamlit: الخط العربي، والاتجاه من اليمين لليسار، وإخفاء عناصره الإنجليزية */
+@import "@fontsource/ibm-plex-sans-arabic/400.css";
+@import "@fontsource/ibm-plex-sans-arabic/500.css";
+@import "@fontsource/ibm-plex-sans-arabic/600.css";
+@import "@fontsource/ibm-plex-sans-arabic/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+
+:root {
+  --afaa-font: "IBM Plex Sans Arabic", "Source Sans Pro", system-ui, sans-serif;
+  --afaa-code-font: "JetBrains Mono", "IBM Plex Sans Arabic", monospace;
+}
+
+body { margin: 0; }
+[hidden] { display: none !important; }
+
+/* الخط العربي لكل النصوص، مع استثناء أيقونات Streamlit (خط الأيقونات) */
+.stApp,
+.stApp :is(h1, h2, h3, h4, h5, h6, p, li, label, button, input, textarea, select, td, th, div, span):not([data-testid="stIconMaterial"]):not([class*="material"]) {
+  font-family: var(--afaa-font) !important;
+}
+.stApp :is(code, pre, pre *, [data-testid="stCode"] *) {
+  font-family: var(--afaa-code-font) !important;
+  font-variant-ligatures: none;
+}
+.stApp :is(h1, h2, h3) { letter-spacing: 0 !important; }
+
+/* النصوص والأرقام المختلطة: اتجاه كل فقرة من محتواها، والمحاذاة يمينًا */
+.stApp :is(p, li, h1, h2, h3, h4, label) { unicode-bidi: plaintext; text-align: right; }
+.stApp [data-testid="stCode"] pre { direction: ltr; text-align: left; unicode-bidi: plaintext; }
+
+/* المنزلق يعمل من اليسار لليمين حتى يبقى السحب صحيحًا */
+.stApp [data-testid="stSlider"] [data-baseweb="slider"] { direction: ltr; }
+
+/* عناصر Streamlit الإنجليزية غير الضرورية */
+.stApp [data-testid="stToolbar"],
+.stApp [data-testid="stAppDeployButton"],
+.stApp [data-testid="stMainMenu"],
+.stApp [data-testid="stStatusWidget"],
+.stApp [data-testid="stDecoration"],
+.stApp footer { display: none !important; }
+
+/* شاشة التحميل */
+.st-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: #ffffff;
+  color: #5f6b7a;
+  font-family: var(--afaa-font);
+  text-align: center;
+  z-index: 1000;
+}
+.st-loading p { margin: 0; }
+.st-loading-hint { font-size: 13px; opacity: 0.8; }
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #dde1e7;
+  border-top-color: #0f766e;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-color-scheme: dark) {
+  .st-loading { background: #0e1117; color: #97a1ae; }
+  .spinner { border-color: #2a323d; border-top-color: #14b8a6; }
+}
+
+/* روابط صغيرة في زاوية التطبيق المستقل */
+.st-credits {
+  position: fixed;
+  left: 12px;
+  bottom: 10px;
+  display: flex;
+  gap: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.12);
+  font-family: var(--afaa-font);
+  font-size: 12px;
+  z-index: 999;
+}
+.st-credits a { color: inherit; opacity: 0.75; text-decoration: none; }
+.st-credits a:hover { opacity: 1; text-decoration: underline; }
