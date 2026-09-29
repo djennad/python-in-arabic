@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>تطبيق أفعى</title>
+  <meta name="description" content="تطبيق ويب مكتوب بلغة أفعى العربية">
+  <!-- يضيف ترويسات عزل الأصل (لدعم «أدخل()») على الاستضافات التي لا تسمح بضبطها -->
+  <script src="coi-serviceworker.js"></script>
+  <script>
+    try {
+      const theme = localStorage.getItem("afaa:theme");
+      if (theme) document.documentElement.dataset.theme = theme;
+    } catch (e) {}
+  </script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div id="loading" class="app-loading" role="status">
+    <div class="spinner" aria-hidden="true"></div>
+    <p id="loading-text">جارٍ تحميل التطبيق…</p>
+  </div>
+
+  <main class="app-main">
+    <div id="ui-root" class="ui-root"></div>
+    <div id="app-output" class="app-output" role="log" hidden></div>
+    <form id="input-row" class="app-input-row" hidden>
+      <input id="input" autocomplete="off" dir="auto" aria-label="إدخال">
+      <button type="submit" class="ui-button">إرسال</button>
+    </form>
+  </main>
+
+  <section id="app-error" class="app-error" role="alert" hidden>
+    <div class="app-error-head">
+      <strong>حدث خطأ في التطبيق</strong>
+      <button id="app-error-close" class="app-link-button" aria-label="إغلاق">✕</button>
+    </div>
+    <pre id="app-error-text"></pre>
+  </section>
+
+  <section id="app-log" class="app-log" hidden aria-label="سجل المخرجات"></section>
+
+  <footer class="app-footer">
+    <a id="made-with" href="https://djennad.github.io/python-in-arabic/" target="_blank" rel="noopener">صُنع بلغة أفعى 🐍</a>
+    <a id="view-source" href="#" target="_blank" rel="noopener">عرض الشيفرة</a>
+    <button id="log-toggle" class="app-link-button" hidden>السجل</button>
+    <button id="theme" class="app-link-button" aria-label="تبديل الوضع الفاتح/الداكن">◐</button>
+  </footer>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

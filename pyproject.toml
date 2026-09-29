@@ -22,3 +22,6 @@ afaa = "afaa.cli:main"
 
 [tool.setuptools]
 packages = ["afaa"]
+
+[tool.setuptools.package-data]
+afaa = ["lib/*.af"]

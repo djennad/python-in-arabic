@@ -63,6 +63,7 @@
     <section class="pane output-pane" aria-label="النتائج">
       <div class="pane-head tabs" role="tablist">
         <button role="tab" id="tab-output" class="tab active" aria-selected="true" aria-controls="output">المخرجات</button>
+        <button role="tab" id="tab-ui" class="tab" aria-selected="false" aria-controls="ui">الواجهة</button>
         <button role="tab" id="tab-python" class="tab" aria-selected="false" aria-controls="python">بايثون المقابل</button>
         <button id="clear" class="ghost small" title="مسح المخرجات">مسح</button>
       </div>
@@ -74,6 +75,23 @@
         <input id="input" autocomplete="off" dir="auto" aria-label="إدخال البرنامج">
         <button type="submit" class="primary small">إرسال</button>
       </form>
+      <div id="ui" class="ui-panel" hidden>
+        <div class="ui-toolbar">
+          <span id="ui-title" class="ui-toolbar-title"></span>
+          <button id="app-window" class="ghost small" title="فتح التطبيق وحده في لسان جديد">↗ نافذة مستقلة</button>
+          <button id="app-link" class="ghost small" title="نسخ رابط يفتح التطبيق مباشرة دون المحرر">🔗 رابط التطبيق</button>
+          <button id="app-export" class="ghost small" title="تنزيل التطبيق كموقع مستقل (ملف zip)">⬇ تصدير كموقع</button>
+        </div>
+        <div class="ui-surface">
+          <div id="ui-empty" class="ui-empty">
+            <p>لا توجد واجهة بعد.</p>
+            <p>استخدم مكتبة <strong>واجهات</strong> لبناء تطبيق تفاعلي، أو جرّب أحد أمثلة «تطبيقات الواجهات» من قائمة الأمثلة.</p>
+            <pre dir="rtl">من واجهات استورد *
+زر("اضغطني"، عند_الضغط=لامدا: تنبيه("مرحبا!"))</pre>
+          </div>
+          <div id="ui-root" class="ui-root"></div>
+        </div>
+      </div>
       <div id="python" class="python-view" hidden></div>
     </section>
   </main>
@@ -85,6 +103,6 @@
   </footer>
 
   <div id="toast" class="toast" role="status" hidden></div>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
 </html>

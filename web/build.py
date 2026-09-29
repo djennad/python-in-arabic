@@ -56,32 +56,53 @@ def build_vocabulary():
     return {"version": __version__, "categories": categories}
 
 
+EXAMPLE_ORDER = ["hello.af", "guess.af", "primes.af", "bank.af", "tour.af",
+                 "counter.af", "calculator.af", "todo.af", "drawing.af", "clock.af"]
+EXAMPLE_GROUPS = [("", "أمثلة اللغة"), ("gui", "تطبيقات الواجهات")]
+
+
 def build_examples():
     examples = []
-    folder = os.path.join(ROOT, "examples")
-    order = ["hello.af", "guess.af", "primes.af", "bank.af", "tour.af"]
-    names = sorted(os.listdir(folder), key=lambda n: (order.index(n) if n in order else 99, n))
-    for name in names:
-        if not name.endswith(".af"):
-            continue
-        with open(os.path.join(folder, name), encoding="utf-8") as fh:
-            code = fh.read()
-        first = code.splitlines()[0].lstrip("#").strip() if code else name
-        title = first.split(":")[0].strip()
-        examples.append({"name": name, "title": title, "code": code})
+    for subfolder, group in EXAMPLE_GROUPS:
+        folder = os.path.join(ROOT, "examples", subfolder)
+        names = sorted((n for n in os.listdir(folder) if n.endswith(".af")),
+                       key=lambda n: (EXAMPLE_ORDER.index(n) if n in EXAMPLE_ORDER else 99, n))
+        for name in names:
+            with open(os.path.join(folder, name), encoding="utf-8") as fh:
+                code = fh.read()
+            first = code.splitlines()[0].lstrip("#").strip() if code else name
+            title = first.split(":")[0].strip()
+            key = f"{subfolder}/{name}" if subfolder else name
+            examples.append({"name": key, "title": title, "group": group, "code": code})
     return examples
 
 
 def build_package_zip(path):
+    """حزمة afaa للمتصفح: ملفات بايثون ومكتبات أفعى (lib/*.af)."""
+    package = os.path.join(ROOT, "afaa")
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for name in sorted(os.listdir(os.path.join(ROOT, "afaa"))):
-            if name.endswith(".py"):
-                zf.write(os.path.join(ROOT, "afaa", name), f"afaa/{name}")
+        for folder, _dirs, files in os.walk(package):
+            for name in sorted(files):
+                if name.endswith((".py", ".af")):
+                    full = os.path.join(folder, name)
+                    zf.write(full, os.path.relpath(full, ROOT))
 
 
 def write_json(path, data):
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, ensure_ascii=False, separators=(",", ":"))
+
+
+def standalone_manifest():
+    """الملفات التي يحتاجها تطبيق مستقل مُصدَّر (يستخدمها زر «تصدير كموقع»)."""
+    files = [{"from": "app.html", "to": "index.html"}]
+    for name in ("app.js", "app.css", "worker.js", "coi-serviceworker.js", "favicon.svg", "afaa.zip"):
+        files.append({"from": name, "to": name})
+    for folder in ("chunks", "fonts", "pyodide"):
+        for name in sorted(os.listdir(os.path.join(DIST, folder))):
+            if not name.endswith(".map"):
+                files.append({"from": f"{folder}/{name}", "to": f"{folder}/{name}"})
+    return files
 
 
 def build():
@@ -90,22 +111,26 @@ def build():
     if os.path.isdir(DIST):
         shutil.rmtree(DIST)
     os.makedirs(os.path.join(DIST, "pyodide"))
+    os.makedirs(os.path.join(DIST, "chunks"))
 
     esbuild = os.path.join(MODULES, ".bin", "esbuild")
+    # main.js: المحرر، app.js: التطبيق المستقل. الأجزاء المشتركة في chunks/
     subprocess.run([
-        esbuild, os.path.join(WEB, "src", "main.js"), "--bundle", "--format=esm",
-        "--minify", "--sourcemap", "--target=es2022",
-        f"--outfile={os.path.join(DIST, 'app.js')}",
+        esbuild, os.path.join(WEB, "src", "main.js"), os.path.join(WEB, "src", "app.js"),
+        "--bundle", "--format=esm", "--splitting", "--minify", "--sourcemap",
+        "--target=es2022", f"--outdir={DIST}", "--entry-names=[name]",
+        "--chunk-names=chunks/[name]-[hash]",
     ], check=True)
 
     # الأنماط مع الخطوط (تُستضاف محليًا بدل Google Fonts)
-    subprocess.run([
-        esbuild, os.path.join(WEB, "src", "style.css"), "--bundle", "--minify",
-        "--loader:.woff2=file", "--loader:.woff=file", "--asset-names=fonts/[name]-[hash]",
-        f"--outfile={os.path.join(DIST, 'style.css')}",
-    ], check=True)
+    for name in ("style.css", "app.css"):
+        subprocess.run([
+            esbuild, os.path.join(WEB, "src", name), "--bundle", "--minify",
+            "--loader:.woff2=file", "--loader:.woff=file", "--asset-names=fonts/[name]-[hash]",
+            f"--outfile={os.path.join(DIST, name)}",
+        ], check=True)
 
-    for name in ("index.html", "favicon.svg"):
+    for name in ("index.html", "app.html", "favicon.svg"):
         shutil.copy(os.path.join(WEB, name), DIST)
     shutil.copy(os.path.join(WEB, "src", "worker.js"), DIST)
     shutil.copy(os.path.join(MODULES, "coi-serviceworker", "coi-serviceworker.min.js"),
@@ -116,6 +141,7 @@ def build():
     build_package_zip(os.path.join(DIST, "afaa.zip"))
     write_json(os.path.join(DIST, "vocabulary.json"), build_vocabulary())
     write_json(os.path.join(DIST, "examples.json"), build_examples())
+    write_json(os.path.join(DIST, "standalone.json"), standalone_manifest())
     # يمنع GitHub Pages من معالجة الملفات بـ Jekyll
     open(os.path.join(DIST, ".nojekyll"), "w").close()
     print(f"تم البناء في {DIST}")

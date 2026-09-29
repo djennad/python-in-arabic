@@ -8,6 +8,9 @@ import sys
 
 EXTENSION = ".af"
 
+# مكتبات أفعى القياسية المكتوبة بأفعى (مثل «واجهات»)
+LIBRARY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib")
+
 __all__ = ["EXTENSION", "ArabicFinder", "ArabicLoader", "install_importer"]
 
 
@@ -28,7 +31,8 @@ class ArabicFinder(importlib.abc.MetaPathFinder):
 
     def find_spec(self, fullname, path=None, target=None):
         name = fullname.rpartition(".")[2]
-        for entry in (sys.path if path is None else path):
+        entries = [*sys.path, LIBRARY_DIR] if path is None else path
+        for entry in entries:
             if not isinstance(entry, str):
                 continue
             entry = entry or os.getcwd()

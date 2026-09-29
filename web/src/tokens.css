@@ -1,0 +1,124 @@
+/* الخطوط والألوان المشتركة بين المحرر والتطبيقات المستقلة */
+@import "@fontsource/ibm-plex-sans-arabic/400.css";
+@import "@fontsource/ibm-plex-sans-arabic/500.css";
+@import "@fontsource/ibm-plex-sans-arabic/600.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/600.css";
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #dde1e7;
+  --text: #1c2430;
+  --muted: #5f6b7a;
+  --accent: #0f766e;
+  --accent-hover: #0d645d;
+  --accent-text: #ffffff;
+  --danger: #c2413a;
+  --focus: #14b8a6;
+  --error-line: rgba(220, 38, 38, 0.12);
+  --console-bg: #fbfbfc;
+  --stderr: #b42318;
+  --input-echo: #0f766e;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+
+  --tok-keyword: #8b3fd1;
+  --tok-constant: #b45309;
+  --tok-builtin: #0f6fb8;
+  --tok-exception: #b42318;
+  --tok-string: #2f7d32;
+  --tok-number: #b45309;
+  --tok-comment: #7b8594;
+  --tok-definition: #0b5cad;
+  --tok-special: #9a3412;
+  --tok-property: #0e7490;
+  --tok-namespace: #7c3aed;
+  --tok-function: #1d4ed8;
+  --tok-operator: #475467;
+  --tok-self: #c026d3;
+
+  /* JetBrains Mono للحروف اللاتينية، وIBM Plex Sans Arabic للعربية (حروف متصلة) */
+  --code-font: "JetBrains Mono", "IBM Plex Sans Arabic", Consolas, Menlo, Tahoma, sans-serif;
+  --ui-font: "IBM Plex Sans Arabic", system-ui, sans-serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1116;
+    --surface: #151a21;
+    --surface-2: #1c222b;
+    --border: #2a323d;
+    --text: #e6e9ee;
+    --muted: #97a1ae;
+    --accent: #14b8a6;
+    --accent-hover: #2dd4bf;
+    --accent-text: #04201d;
+    --danger: #f87171;
+    --error-line: rgba(248, 113, 113, 0.16);
+    --console-bg: #11151b;
+    --stderr: #fca5a5;
+    --input-echo: #5eead4;
+    --shadow: none;
+    --tok-keyword: #c792ea;
+    --tok-constant: #f6b26b;
+    --tok-builtin: #7cc4fa;
+    --tok-exception: #ff8b8b;
+    --tok-string: #a5d6a7;
+    --tok-number: #f6b26b;
+    --tok-comment: #6b7686;
+    --tok-definition: #82aaff;
+    --tok-special: #fdba74;
+    --tok-property: #67e8f9;
+    --tok-namespace: #c4b5fd;
+    --tok-function: #93c5fd;
+    --tok-operator: #a3aebb;
+    --tok-self: #f0abfc;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e1116;
+  --surface: #151a21;
+  --surface-2: #1c222b;
+  --border: #2a323d;
+  --text: #e6e9ee;
+  --muted: #97a1ae;
+  --accent: #14b8a6;
+  --accent-hover: #2dd4bf;
+  --accent-text: #04201d;
+  --danger: #f87171;
+  --error-line: rgba(248, 113, 113, 0.16);
+  --console-bg: #11151b;
+  --stderr: #fca5a5;
+  --input-echo: #5eead4;
+  --shadow: none;
+  --tok-keyword: #c792ea;
+  --tok-constant: #f6b26b;
+  --tok-builtin: #7cc4fa;
+  --tok-exception: #ff8b8b;
+  --tok-string: #a5d6a7;
+  --tok-number: #f6b26b;
+  --tok-comment: #6b7686;
+  --tok-definition: #82aaff;
+  --tok-special: #fdba74;
+  --tok-property: #67e8f9;
+  --tok-namespace: #c4b5fd;
+  --tok-function: #93c5fd;
+  --tok-operator: #a3aebb;
+  --tok-self: #f0abfc;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
+
+button, select, input, textarea { font: inherit; color: inherit; }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}

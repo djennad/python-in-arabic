@@ -45,32 +45,51 @@ function readLine() {
 const SETUP = `
 import sys
 import afaa
+from afaa import gui_bridge
 from afaa.errors import format_exception
 from afaa.runtime import install
 from afaa.translator import translate as _afaa_translate
 install()
+gui_bridge.enabled = True
+_PROGRAM = ${JSON.stringify(PROGRAM)}
+
+def _afaa_report(exc):
+    """يطبع الخطأ بالعربية ويعيد رقم السطر في برنامج المستخدم (أو ٠)."""
+    # نبدأ التتبع من أول إطار في برنامج المستخدم
+    tb = exc.__traceback__
+    while tb is not None and tb.tb_frame.f_code.co_filename != _PROGRAM:
+        tb = tb.tb_next
+    sys.stderr.write(format_exception(exc.with_traceback(tb)))
+    if isinstance(exc, SyntaxError) and exc.filename == _PROGRAM:
+        return exc.lineno or 0
+    line = 0
+    while tb is not None:
+        if tb.tb_frame.f_code.co_filename == _PROGRAM:
+            line = tb.tb_lineno
+        tb = tb.tb_next
+    return line
 
 def _afaa_run(source):
+    gui_bridge.reset()
     try:
-        afaa.run_source(source, ${JSON.stringify(PROGRAM)})
+        afaa.run_source(source, _PROGRAM)
         return 0
     except SystemExit:
         return 0
     except BaseException as exc:
-        # نبدأ التتبع من أول إطار في برنامج المستخدم
-        tb = exc.__traceback__
-        while tb is not None and tb.tb_frame.f_code.co_filename != ${JSON.stringify(PROGRAM)}:
-            tb = tb.tb_next
-        sys.stderr.write(format_exception(exc.with_traceback(tb)))
-        if isinstance(exc, SyntaxError) and exc.filename == ${JSON.stringify(PROGRAM)}:
-            return exc.lineno or 0
-        line = 0
-        tb = exc.__traceback__
-        while tb is not None:
-            if tb.tb_frame.f_code.co_filename == ${JSON.stringify(PROGRAM)}:
-                line = tb.tb_lineno
-            tb = tb.tb_next
-        return line
+        return _afaa_report(exc)
+    finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+def _afaa_dispatch(widget_id, name, data):
+    try:
+        gui_bridge.dispatch(widget_id, name, data)
+        return 0
+    except SystemExit:
+        return 0
+    except BaseException as exc:
+        return _afaa_report(exc)
     finally:
         sys.stdout.flush()
         sys.stderr.flush()
@@ -90,15 +109,30 @@ async function init() {
   post("ready", { version });
 }
 
+// callPromising يتيح لـ asyncio (تزامن.شغل) العمل داخل المتصفح
+async function callPython(name, ...args) {
+  const func = pyodide.globals.get(name);
+  return typeof func.callPromising === "function" ? func.callPromising(...args) : func(...args);
+}
+
+// يرسل عمليات الواجهة المتراكمة إلى الصفحة
+function flushUi(extra = {}) {
+  const ops = pyodide.runPython("gui_bridge.flush()");
+  if (ops || extra.ack) post("ui-ops", { ops: ops ? JSON.parse(ops) : [], ...extra });
+}
+
 const handlers = {
   async run({ code }) {
     const started = performance.now();
-    // callPromising يتيح لـ asyncio (تزامن.شغل) العمل داخل المتصفح
-    const program = pyodide.globals.get("_afaa_run");
-    const errorLine = typeof program.callPromising === "function"
-      ? await program.callPromising(code)
-      : program(code);
-    post("done", { errorLine, duration: performance.now() - started });
+    const errorLine = await callPython("_afaa_run", code);
+    flushUi();
+    const app = pyodide.runPython("gui_bridge.active");
+    post("done", { errorLine, duration: performance.now() - started, app });
+  },
+  async "ui-event"({ id, name, data }) {
+    const errorLine = await callPython("_afaa_dispatch", id, name, JSON.stringify(data ?? null));
+    flushUi({ ack: { id, name } });
+    if (errorLine) post("ui-error", { errorLine });
   },
   translate({ code, id }) {
     let python = "";
