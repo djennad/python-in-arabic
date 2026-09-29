@@ -45,12 +45,14 @@ function readLine() {
 const SETUP = `
 import sys
 import afaa
-from afaa import gui_bridge
+from afaa import gui_bridge, storage
 from afaa.errors import format_exception
 from afaa.runtime import install
 from afaa.translator import translate as _afaa_translate
+import afaa_host
 install()
 gui_bridge.enabled = True
+storage.set_persist_hook(afaa_host.persist)
 _PROGRAM = ${JSON.stringify(PROGRAM)}
 
 def _afaa_report(exc):
@@ -95,6 +97,50 @@ def _afaa_dispatch(widget_id, name, data):
         sys.stderr.flush()
 `;
 
+// ---------------------------------------------------------------------------
+// التخزين الدائم: المجلد /data مربوط بقاعدة IndexedDB في المتصفح، فتبقى
+// ملفات قواعد البيانات بعد إغلاق الصفحة (خاصة بكل زائر وكل موقع).
+// ---------------------------------------------------------------------------
+const DATA_DIR = "/data";
+let syncing = null;
+let dirty = false;
+
+function syncfs(populate) {
+  return new Promise((resolve, reject) => {
+    pyodide.FS.syncfs(populate, (err) => (err ? reject(err) : resolve()));
+  });
+}
+
+async function mountStorage() {
+  pyodide.FS.mkdirTree(DATA_DIR);
+  try {
+    pyodide.FS.mount(pyodide.FS.filesystems.IDBFS, {}, DATA_DIR);
+    await syncfs(true);
+    return true;
+  } catch (err) {
+    // مثلا في التصفح الخاص: تعمل القواعد لكنها لا تبقى بعد الإغلاق
+    console.warn("أفعى: التخزين الدائم غير متاح", err);
+    return false;
+  }
+}
+
+// يُستدعى من بايثون بعد كل كتابة. الحفظ غير متزامن، والطلبات المتتالية تُدمج
+function persist() {
+  dirty = true;
+  if (syncing) return;
+  syncing = (async () => {
+    while (dirty) {
+      dirty = false;
+      try {
+        await syncfs(false);
+      } catch (err) {
+        console.warn("أفعى: تعذّر حفظ البيانات", err);
+      }
+    }
+    syncing = null;
+  })();
+}
+
 async function init() {
   post("status", { text: "جارٍ تحميل بايثون…" });
   pyodide = await loadPyodide({ indexURL: new URL("./pyodide/", import.meta.url).href });
@@ -104,6 +150,8 @@ async function init() {
   pyodide.setStdout(streamWriter("stdout"));
   pyodide.setStderr(streamWriter("stderr"));
   pyodide.setStdin({ stdin: readLine, isatty: false });
+  const persistent = await mountStorage();
+  pyodide.registerJsModule("afaa_host", { persist: persistent ? persist : () => {} });
   pyodide.runPython(SETUP);
   const version = pyodide.runPython("import sys; afaa.__version__ + ' / Python ' + sys.version.split()[0]");
   post("ready", { version });

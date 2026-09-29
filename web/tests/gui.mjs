@@ -226,6 +226,42 @@ try {
   server.kill();
 }
 
+// 12. قواعد البيانات: البيانات تبقى بعد إغلاق الصفحة (ذاكرة المتصفح الدائمة)
+async function freshPage(example) {
+  const p = watch(await context.newPage());
+  await p.goto(URL_BASE);
+  await p.waitForFunction(() => document.getElementById("status-text").textContent === "جاهز", null, { timeout: 60000 });
+  await p.selectOption("#examples", example);
+  await p.keyboard.press("Control+Enter");
+  await p.waitForFunction(() => document.querySelector("#output .meta"), null, { timeout: 30000 });
+  await p.waitForTimeout(300);
+  return p;
+}
+let db = await freshPage("database.af");
+const firstRun = (await db.locator("#output").innerText()).split("\n")[0];
+await db.close();
+db = await freshPage("database.af");
+const secondRun = await db.locator("#output").innerText();
+await db.close();
+check("database persists across pages", firstRun.includes("رقم 1") && secondRun.includes("رقم 2")
+  && secondRun.includes("كليلة ودمنة") && secondRun.includes("القيمة مكررة"), JSON.stringify(secondRun.split("\n")[0]));
+
+db = await freshPage("gui/students.af");
+const rowsBefore = await db.locator("#ui-root .ui-table tbody tr").count();
+await db.locator("#ui-root .ui-input").first().fill("ليلى");
+await db.locator("#ui-root .ui-input").first().press("Enter");
+await db.waitForTimeout(500);
+await db.locator("#ui-root .ui-input").nth(2).fill("ي");   // البحث
+await db.waitForTimeout(500);
+const found = await db.locator("#ui-root .ui-table tbody").innerText();
+await db.close();
+db = await freshPage("gui/students.af");
+const afterReload = await db.locator("#ui-root .ui-table tbody").innerText();
+check("GUI + database: add, search, persist", rowsBefore === 3 && found.includes("ليلى")
+  && found.includes("يوسف") && !found.includes("سارة") && afterReload.includes("ليلى"),
+  JSON.stringify([rowsBefore, found, afterReload]));
+await db.close();
+
 console.log(results.join("\n"));
 console.log("console errors:", errors.length ? errors : "none");
 await browser.close();

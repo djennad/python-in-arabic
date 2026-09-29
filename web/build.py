@@ -56,8 +56,8 @@ def build_vocabulary():
     return {"version": __version__, "categories": categories}
 
 
-EXAMPLE_ORDER = ["hello.af", "guess.af", "primes.af", "bank.af", "tour.af",
-                 "counter.af", "calculator.af", "todo.af", "drawing.af", "clock.af"]
+EXAMPLE_ORDER = ["hello.af", "guess.af", "primes.af", "bank.af", "database.af", "tour.af",
+                 "counter.af", "calculator.af", "todo.af", "students.af", "drawing.af", "clock.af"]
 EXAMPLE_GROUPS = [("", "أمثلة اللغة"), ("gui", "تطبيقات الواجهات")]
 
 

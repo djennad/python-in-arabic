@@ -8,6 +8,8 @@
     afaa -i ملف.af             تشغيل ملف ثم فتح الطرفية
     afaa --translate ملف.af    عرض شيفرة بايثون المقابلة
     afaa --to-arabic ملف.py    تحويل ملف بايثون إلى أفعى
+    afaa --sql [قاعدة]         طرفية SQL بالعربية على قاعدة بيانات (مثل: afaa --sql مدرستي)
+    afaa --translate-sql "..."  عرض استعلام SQL عربي بالإنجليزية
     afaa --web ملف.af          فتح الملف كتطبيق ويب في المتصفح (لبرامج «واجهات»)
     afaa --edit ملف.af         فتح الملف في ساحة أفعى (محرر الويب)
     afaa --vocabulary          عرض القاموس كاملًا
@@ -106,6 +108,13 @@ def main(argv=None):
         return 0
     if option in ("--vocabulary", "--قاموس"):
         print(vocabulary_markdown())
+        return 0
+    if option == "--sql":
+        from .sql_shell import interact as sql_interact
+        return sql_interact(argv[1] if len(argv) > 1 else None)
+    if option == "--translate-sql":
+        from .sql import translate_sql
+        print(translate_sql(" ".join(argv[1:]) if len(argv) > 1 else sys.stdin.read()))
         return 0
     if option in ("--web", "--edit"):
         if len(argv) < 2 or not os.path.exists(argv[1]):
