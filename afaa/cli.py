@@ -10,7 +10,8 @@
     afaa --to-arabic ملف.py    تحويل ملف بايثون إلى أفعى
     afaa --sql [قاعدة]         طرفية SQL بالعربية على قاعدة بيانات (مثل: afaa --sql مدرستي)
     afaa --translate-sql "..."  عرض استعلام SQL عربي بالإنجليزية
-    afaa --web ملف.af          فتح الملف كتطبيق ويب في المتصفح (لبرامج «واجهات»)
+    afaa --streamlit ملف.af    تشغيل تطبيق «ستريمليت» على الجهاز (يتطلب pip install streamlit)
+    afaa --web ملف.af          فتح الملف كتطبيق ويب في المتصفح (لبرامج «واجهات» و«ستريمليت»)
     afaa --edit ملف.af         فتح الملف في ساحة أفعى (محرر الويب)
     afaa --vocabulary          عرض القاموس كاملًا
     afaa --version             عرض الإصدار
@@ -18,6 +19,7 @@
 
 import base64
 import os
+import re
 import runpy
 import sys
 import zlib
@@ -39,6 +41,14 @@ def web_link(code, page="app.html", base=None):
     data = compressor.compress(code.encode("utf-8")) + compressor.flush()
     token = "z" + base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
     return f"{base.rstrip('/')}/{page}#code={token}"
+
+
+_STREAMLIT_IMPORT = re.compile(r"^[ \t]*(?:استورد|إستورد|من)[ \t]+ستريمليت\b", re.M)
+
+
+def app_page(code):
+    """صفحة التطبيق المناسبة: برامج «ستريمليت» لها بيئة تشغيل خاصة."""
+    return "streamlit.html" if _STREAMLIT_IMPORT.search(code) else "app.html"
 
 
 def _read(path):
@@ -109,6 +119,12 @@ def main(argv=None):
     if option in ("--vocabulary", "--قاموس"):
         print(vocabulary_markdown())
         return 0
+    if option == "--streamlit":
+        if len(argv) < 2 or not os.path.exists(argv[1]):
+            print("الاستخدام: afaa --streamlit ملف.af", file=sys.stderr)
+            return 2
+        from .streamlit_runner import main as streamlit_main
+        return streamlit_main(argv[1], argv[2:])
     if option == "--sql":
         from .sql_shell import interact as sql_interact
         return sql_interact(argv[1] if len(argv) > 1 else None)
@@ -120,7 +136,8 @@ def main(argv=None):
         if len(argv) < 2 or not os.path.exists(argv[1]):
             print("الاستخدام: afaa --web ملف.af  أو  afaa --edit ملف.af", file=sys.stderr)
             return 2
-        url = web_link(_read(argv[1]), "app.html" if option == "--web" else "")
+        code = _read(argv[1])
+        url = web_link(code, app_page(code) if option == "--web" else "")
         print(url)
         import webbrowser
         try:

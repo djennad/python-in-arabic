@@ -181,14 +181,15 @@ def _arabize_lines(text, exc_type_name):
     return "\n".join(result) + "\n"
 
 
-def _clean(te):
-    """يحذف إطارات مترجم أفعى ونظام الاستيراد الداخلية من التتبع."""
+def _clean(te, hidden=()):
+    """يحذف إطارات مترجم أفعى ونظام الاستيراد الداخلية (وأي مسارات أخرى) من التتبع."""
     seen = set()
+    hidden = (_PACKAGE_DIR, *hidden)
     while te is not None and id(te) not in seen:
         seen.add(id(te))
         te.stack[:] = [
             f for f in te.stack
-            if not f.filename.startswith(_PACKAGE_DIR)
+            if not f.filename.startswith(hidden)
             and not f.filename.startswith(("<frozen importlib", "<frozen runpy"))
         ]
         for f in te.stack:
@@ -196,15 +197,18 @@ def _clean(te):
             if hasattr(f, "colno") and (
                     f.filename.endswith(".af") or f.filename.startswith("<")):
                 f.colno = f.end_colno = None
-        _clean(te.__cause__)
+        _clean(te.__cause__, hidden[1:])
         te = te.__context__
 
 
-def format_exception(exc):
-    """ينسّق الاستثناء مع تتبع الاستدعاءات بالعربية."""
+def format_exception(exc, hidden=()):
+    """ينسّق الاستثناء مع تتبع الاستدعاءات بالعربية.
+
+    hidden: بدايات مسارات تُحذف إطاراتها أيضا (مثل مجلد مكتبة streamlit).
+    """
     te = traceback.TracebackException(
         type(exc), exc, exc.__traceback__, compact=True)
-    _clean(te)
+    _clean(te, tuple(hidden))
     return _arabize_lines("".join(te.format()), type(exc).__name__)
 
 
