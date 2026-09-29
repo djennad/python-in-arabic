@@ -17,6 +17,10 @@ import { python } from "@codemirror/lang-python";
 import { tags as t } from "@lezer/highlight";
 
 import { afaa } from "./afaa-lang.js";
+import { OutputConsole } from "./console.js";
+import { Runtime } from "./runtime.js";
+import { codeFromHash, linkTo } from "./share.js";
+import { UiRenderer } from "./ui.js";
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = "afaa:code";
@@ -114,149 +118,26 @@ const errorLineField = StateField.define({
 // ---------------------------------------------------------------------------
 // البرنامج الابتدائي: من الرابط، ثم التخزين المحلي، ثم المثال الافتراضي
 // ---------------------------------------------------------------------------
-function toBase64Url(bytes) {
-  let binary = "";
-  bytes.forEach((b) => { binary += String.fromCharCode(b); });
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function fromBase64Url(text) {
-  const binary = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
-  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
-}
-
-async function transform(bytes, stream) {
-  return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
-}
-
-async function encodeShare(code) {
-  const bytes = new TextEncoder().encode(code);
-  if (typeof CompressionStream === "function") {
-    return "z" + toBase64Url(await transform(bytes, new CompressionStream("deflate-raw")));
-  }
-  return "p" + toBase64Url(bytes);
-}
-
-async function decodeShare(value) {
-  const bytes = fromBase64Url(value.slice(1));
-  const raw = value[0] === "z" ? await transform(bytes, new DecompressionStream("deflate-raw")) : bytes;
-  return new TextDecoder().decode(raw);
-}
-
 async function initialCode() {
-  const match = /#code=([\w-]+)/.exec(location.hash);
-  if (match) {
-    try {
-      return await decodeShare(match[1]);
-    } catch {
-      showToast("تعذّر قراءة البرنامج من الرابط");
-    }
+  try {
+    const shared = await codeFromHash();
+    if (shared != null) return shared;
+  } catch {
+    showToast("تعذّر قراءة البرنامج من الرابط");
   }
   return storage.get(STORAGE_KEY) ?? DEFAULT_CODE;
 }
 
 // ---------------------------------------------------------------------------
-// المخرجات
+// المخرجات والحالة
 // ---------------------------------------------------------------------------
-const output = $("output");
-const MAX_LINES = 5000;
-let pendingOutput = [];
-let flushScheduled = false;
-
-function appendOutput(text, cls) {
-  pendingOutput.push([text, cls]);
-  if (!flushScheduled) {
-    flushScheduled = true;
-    requestAnimationFrame(flushOutput);
-  }
-}
-
-// أسطر المخرجات التي تبدأ بقوس أو علامة اقتباس أو رقم (مثل [١، ٢] أو ('أ', 3))
-// هي تمثيلات بايثون فتُعرض من اليسار لليمين حتى لا تنقلب الأقواس
-const CODE_LIKE = /^\s*[[({'"0-9a-zA-Z<-]/;
-let currentLine = null;
-
-function lineDirection(line) {
-  if (CODE_LIKE.test(line.textContent)) line.setAttribute("dir", "ltr");
-  else line.removeAttribute("dir");
-}
-
-// عزل النصوص المقتبسة في الأسطر البرمجية حتى لا تقلب خوارزمية الاتجاه
-// ترتيب الأرقام والأقواس بين كلمتين عربيتين، مثل [('ا', 3), ('م', 2)]
-const QUOTED = /('[^'\n]*'|"[^"\n]*")/;
-function isolateQuoted(line) {
-  if (line.getAttribute("dir") !== "ltr") return;
-  for (const span of line.children) {
-    const text = span.textContent;
-    if (!QUOTED.test(text)) continue;
-    span.textContent = "";
-    text.split(QUOTED).forEach((part, index) => {
-      if (!part) return;
-      if (index % 2) {
-        const bdi = document.createElement("bdi");
-        bdi.textContent = part;
-        span.appendChild(bdi);
-      } else {
-        span.appendChild(document.createTextNode(part));
-      }
-    });
-  }
-}
-
-function newLine() {
-  currentLine = document.createElement("div");
-  currentLine.className = "line";
-  output.appendChild(currentLine);
-}
-
-function flushOutput() {
-  flushScheduled = false;
-  if (!pendingOutput.length) return;
-  const nearBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 40;
-  output.querySelector(".placeholder")?.remove();
-  for (const [text, cls] of pendingOutput) {
-    text.split("\n").forEach((part, index) => {
-      if (index > 0) {
-        // نهاية سطر: نغلق السطر المفتوح (أو ننشئ سطرًا فارغًا)
-        if (!currentLine) newLine();
-        lineDirection(currentLine);
-        isolateQuoted(currentLine);
-        currentLine = null;
-      }
-      if (!part) return;
-      if (!currentLine) newLine();
-      const span = document.createElement("span");
-      if (cls) span.className = cls;
-      span.textContent = part;
-      currentLine.appendChild(span);
-    });
-  }
-  if (currentLine) lineDirection(currentLine);
-  pendingOutput = [];
-  while (output.childNodes.length > MAX_LINES) output.firstChild.remove();
-  if (nearBottom) output.scrollTop = output.scrollHeight;
-}
-
-function appendMeta(text) {
-  flushOutput();
-  currentLine = null;
-  const div = document.createElement("div");
-  div.className = "meta";
-  div.textContent = text;
-  output.appendChild(div);
-  output.scrollTop = output.scrollHeight;
-}
-
-function clearOutput() {
-  pendingOutput = [];
-  currentLine = null;
-  output.textContent = "";
-}
+const output = new OutputConsole($("output"));
 
 let toastTimer = null;
-function showToast(text) {
+function showToast(text, kind = "info") {
   const toast = $("toast");
   toast.textContent = text;
+  toast.dataset.kind = kind;
   toast.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.hidden = true; }, 2600);
@@ -267,112 +148,119 @@ function setStatus(text, kind = "ready") {
   $("status").className = `status ${kind}`;
 }
 
-// ---------------------------------------------------------------------------
-// عامل التشغيل (Pyodide)
-// ---------------------------------------------------------------------------
-const INPUT_BYTES = 64 * 1024;
-const canInput = typeof SharedArrayBuffer === "function" && self.crossOriginIsolated;
-let inputBuffer = null;
-let worker = null;
-let workerReady = false;
-let running = false;
-let translateId = 0;
-
-function startWorker() {
-  workerReady = false;
-  $("run").disabled = true;
-  worker = new Worker(new URL("worker.js", import.meta.url), { type: "module" });
-  if (canInput) {
-    inputBuffer = new SharedArrayBuffer(8 + INPUT_BYTES);
-    worker.postMessage({ type: "input-buffer", buffer: inputBuffer });
-  }
-  worker.onmessage = (event) => onWorkerMessage(event.data);
-  worker.onerror = (event) => {
-    setStatus("تعذّر تشغيل بايثون", "error");
-    appendOutput(`تعذّر تحميل بيئة التشغيل: ${event.message || "خطأ غير معروف"}\n`, "stderr");
-  };
+function showErrorLine(errorLine) {
+  if (!(errorLine > 0 && errorLine <= view.state.doc.lines)) return false;
+  const line = view.state.doc.line(errorLine);
+  view.dispatch({ effects: [setErrorLine.of(line.from), EditorView.scrollIntoView(line.from, { y: "center" })] });
+  return true;
 }
 
-function onWorkerMessage(message) {
-  switch (message.type) {
-    case "status":
-      setStatus(message.text, "loading");
-      break;
-    case "ready":
-      workerReady = true;
-      $("run").disabled = false;
-      $("version").textContent = `أفعى ${message.version}`;
-      setStatus("جاهز");
-      if (pythonVisible) requestTranslation();
-      break;
-    case "fatal":
-      setStatus("تعذّر تحميل بايثون", "error");
-      appendOutput(`تعذّر تحميل بيئة التشغيل: ${message.text}\n`, "stderr");
-      break;
-    case "stdout":
-      appendOutput(message.text);
-      break;
-    case "stderr":
-      appendOutput(message.text, "stderr");
-      break;
-    case "input-request":
-      showInput();
-      break;
-    case "done":
-      finishRun(message.errorLine, message.duration);
-      break;
-    case "translated":
-      if (message.id === translateId) showPython(message.python);
-      break;
-  }
+// الأزرار: «تشغيل» متاح دائمًا بعد التحميل (يعيد تشغيل التطبيق)، و«إيقاف» أثناء العمل
+function setRunning(active) {
+  $("run").hidden = runtime.running;
+  $("stop").hidden = !active;
 }
+
+// ---------------------------------------------------------------------------
+// الواجهة (مكتبة «واجهات»)
+// ---------------------------------------------------------------------------
+const uiRoot = $("ui-root");
+let switchedToUi = false;
+const ui = new UiRenderer(uiRoot, {
+  sendEvent: (id, name, data, mode) => runtime.sendEvent(id, name, data, mode),
+  onTitle: (title) => { $("ui-title").textContent = title; },
+  onToast: (text, kind) => showToast(text, kind),
+  onCreate: () => {
+    $("ui-empty").hidden = true;
+    if (!switchedToUi) {
+      switchedToUi = true;
+      selectTab("ui");
+    }
+  },
+});
+
+function resetUi() {
+  ui.reset();
+  $("toast").hidden = true;
+  switchedToUi = false;
+  $("ui-title").textContent = "";
+  $("ui-empty").hidden = false;
+  $("ui").classList.remove("stopped");
+}
+
+// ---------------------------------------------------------------------------
+// التشغيل
+// ---------------------------------------------------------------------------
+const runtime = new Runtime({
+  onStatus: (text) => setStatus(text, "loading"),
+  onReady: (version) => {
+    $("run").disabled = false;
+    $("version").textContent = `أفعى ${version}`;
+    setStatus("جاهز");
+    if (activeTab === "python") runtime.translate(view.state.doc.toString());
+  },
+  onFatal: (text) => {
+    setStatus("تعذّر تحميل بايثون", "error");
+    output.append(`تعذّر تحميل بيئة التشغيل: ${text}\n`, "stderr");
+  },
+  onStdout: (text) => output.append(text),
+  onStderr: (text) => output.append(text, "stderr"),
+  onInputRequest: () => showInput(),
+  onUiOps: (ops) => ui.apply(ops),
+  onUiError: (errorLine) => {
+    showErrorLine(errorLine);
+    setStatus(`خطأ في السطر ${errorLine}`, "error");
+    showToast("حدث خطأ في التطبيق، انظر المخرجات", "error");
+  },
+  onDone: ({ errorLine, duration, app }) => finishRun(errorLine, duration, app),
+  onTranslated: (python) => showPython(python),
+});
 
 function run() {
-  if (!workerReady || running) return;
-  running = true;
-  clearOutput();
+  if (!runtime.ready) return;
+  if (runtime.running) return;
+  output.clear();
+  resetUi();
   view.dispatch({ effects: setErrorLine.of(null) });
-  $("run").hidden = true;
-  $("stop").hidden = false;
+  if (!runtime.run(view.state.doc.toString())) return;
+  setRunning(true);
   setStatus("قيد التشغيل…", "running");
-  selectTab("output");
-  worker.postMessage({ type: "run", code: view.state.doc.toString() });
+  if (activeTab === "python") selectTab("output");
 }
 
-function finishRun(errorLine, duration) {
-  running = false;
+function finishRun(errorLine, duration, app) {
   hideInput();
-  $("run").hidden = false;
-  $("stop").hidden = true;
   const seconds = (duration / 1000).toFixed(2);
-  if (errorLine > 0 && errorLine <= view.state.doc.lines) {
-    const line = view.state.doc.line(errorLine);
-    view.dispatch({ effects: [setErrorLine.of(line.from), EditorView.scrollIntoView(line.from, { y: "center" })] });
+  if (showErrorLine(errorLine)) {
     setStatus(`خطأ في السطر ${errorLine}`, "error");
-    appendMeta(`— انتهى بخطأ في السطر ${errorLine} (${seconds} ث)`);
+    output.meta(`— انتهى بخطأ في السطر ${errorLine} (${seconds} ث)`);
+  } else if (app) {
+    setStatus("التطبيق يعمل", "live");
+    output.meta(`— التطبيق يعمل، تفاعل معه في لسان «الواجهة» (${seconds} ث)`);
   } else {
     setStatus("جاهز");
-    appendMeta(`— انتهى التنفيذ (${seconds} ث)`);
+    output.meta(`— انتهى التنفيذ (${seconds} ث)`);
   }
+  setRunning(app);
 }
 
 function stop() {
-  if (!running) return;
-  worker.terminate();
-  running = false;
+  if (!runtime.running && !runtime.appLive) return;
+  const wasApp = runtime.appLive;
+  runtime.stop();
+  ui.stopAllTimers();
   hideInput();
-  flushOutput();
-  appendMeta("— أُوقف البرنامج");
-  $("run").hidden = false;
-  $("stop").hidden = true;
-  startWorker(); // عامل جديد (يُحمَّل بايثون من ذاكرة المتصفح بسرعة)
+  output.meta(wasApp ? "— أُوقف التطبيق" : "— أُوقف البرنامج");
+  $("ui").classList.add("stopped");
+  $("run").disabled = true;
+  setRunning(false);
 }
 
 // ---------------------------------------------------------------------------
 // الإدخال: «أدخل()»
 // ---------------------------------------------------------------------------
 function showInput() {
-  flushOutput();
+  output.flush();
   $("input-row").hidden = false;
   $("input").value = "";
   $("input").focus();
@@ -382,37 +270,21 @@ function hideInput() {
   $("input-row").hidden = true;
 }
 
-function sendInput(text) {
-  const flag = new Int32Array(inputBuffer, 0, 2);
-  let bytes = new TextEncoder().encode(text);
-  if (bytes.length > INPUT_BYTES) bytes = bytes.slice(0, INPUT_BYTES);
-  new Uint8Array(inputBuffer, 8, INPUT_BYTES).set(bytes);
-  Atomics.store(flag, 1, bytes.length);
-  Atomics.store(flag, 0, 1);
-  Atomics.notify(flag, 0);
-}
-
 $("input-row").addEventListener("submit", (event) => {
   event.preventDefault();
   const text = $("input").value;
-  appendOutput(text + "\n", "echo");
+  output.append(text + "\n", "echo");
   hideInput();
-  sendInput(text);
+  runtime.sendInput(text);
   view.focus();
 });
 
 // ---------------------------------------------------------------------------
-// لوحة بايثون المقابل
+// الألسنة: المخرجات | الواجهة | بايثون المقابل
 // ---------------------------------------------------------------------------
-let pythonVisible = false;
+let activeTab = "output";
 let pythonView = null;
 let translateTimer = null;
-
-function requestTranslation() {
-  if (!workerReady) return;
-  translateId += 1;
-  worker.postMessage({ type: "translate", id: translateId, code: view.state.doc.toString() });
-}
 
 function showPython(code) {
   if (!pythonView) {
@@ -433,25 +305,27 @@ function showPython(code) {
   pythonView.dispatch({ changes: { from: 0, to: pythonView.state.doc.length, insert: code } });
 }
 
+const TABS = { output: "output", ui: "ui", python: "python" };
 function selectTab(name) {
-  pythonVisible = name === "python";
-  $("tab-output").classList.toggle("active", !pythonVisible);
-  $("tab-python").classList.toggle("active", pythonVisible);
-  $("tab-output").setAttribute("aria-selected", String(!pythonVisible));
-  $("tab-python").setAttribute("aria-selected", String(pythonVisible));
-  $("output").hidden = pythonVisible;
-  $("python").hidden = !pythonVisible;
-  $("clear").hidden = pythonVisible;
-  if (pythonVisible) {
-    if (!workerReady) showPython("# جارٍ تحميل بايثون…");
-    requestTranslation();
+  activeTab = name;
+  for (const tab of Object.keys(TABS)) {
+    const selected = tab === name;
+    $(`tab-${tab}`).classList.toggle("active", selected);
+    $(`tab-${tab}`).setAttribute("aria-selected", String(selected));
+    $(TABS[tab]).hidden = !selected;
+  }
+  $("clear").hidden = name !== "output";
+  if (name === "python") {
+    if (!runtime.ready) showPython("# جارٍ تحميل بايثون…");
+    runtime.translate(view.state.doc.toString());
   }
 }
 
-$("tab-output").addEventListener("click", () => selectTab("output"));
-$("tab-python").addEventListener("click", () => selectTab("python"));
+for (const tab of Object.keys(TABS)) {
+  $(`tab-${tab}`).addEventListener("click", () => selectTab(tab));
+}
 $("clear").addEventListener("click", () => {
-  clearOutput();
+  output.clear();
   view.dispatch({ effects: setErrorLine.of(null) });
 });
 
@@ -500,9 +374,9 @@ const view = new EditorView({
       EditorView.updateListener.of((update) => {
         if (!update.docChanged) return;
         scheduleSave();
-        if (pythonVisible) {
+        if (activeTab === "python") {
           clearTimeout(translateTimer);
-          translateTimer = setTimeout(requestTranslation, 250);
+          translateTimer = setTimeout(() => runtime.translate(view.state.doc.toString()), 250);
         }
       }),
     ],
@@ -528,15 +402,23 @@ function setCode(code) {
 }
 
 // ---------------------------------------------------------------------------
-// الأمثلة والمشاركة والسمة
+// الأمثلة
 // ---------------------------------------------------------------------------
 fetch("examples.json").then((r) => r.json()).then((examples) => {
   const select = $("examples");
+  const groups = new Map();
   for (const example of examples) {
+    const label = example.group || "أمثلة";
+    if (!groups.has(label)) {
+      const group = document.createElement("optgroup");
+      group.label = label;
+      select.appendChild(group);
+      groups.set(label, group);
+    }
     const option = document.createElement("option");
     option.value = example.name;
     option.textContent = example.title;
-    select.appendChild(option);
+    groups.get(label).appendChild(option);
   }
   select.addEventListener("change", () => {
     const example = examples.find((e) => e.name === select.value);
@@ -545,18 +427,50 @@ fetch("examples.json").then((r) => r.json()).then((examples) => {
     const current = view.state.doc.toString();
     if (current.trim() && current !== example.code && !confirm("سيُستبدل البرنامج الحالي بالمثال. هل تريد المتابعة؟")) return;
     setCode(example.code);
-    clearOutput();
+    output.clear();
   });
 });
 
-$("share").addEventListener("click", async () => {
-  const url = `${location.origin}${location.pathname}#code=${await encodeShare(view.state.doc.toString())}`;
-  history.replaceState(null, "", url);
+// ---------------------------------------------------------------------------
+// المشاركة، والتطبيق المستقل، والتصدير
+// ---------------------------------------------------------------------------
+async function copyLink(url, message) {
   try {
     await navigator.clipboard.writeText(url);
-    showToast("نُسخ رابط البرنامج — أرسله لمن تريد");
+    showToast(message, "success");
   } catch {
-    showToast("الرابط في شريط العنوان، انسخه يدويًا");
+    prompt("انسخ الرابط:", url);
+  }
+}
+
+$("share").addEventListener("click", async () => {
+  const url = await linkTo(location.pathname.split("/").pop() || "./", view.state.doc.toString());
+  history.replaceState(null, "", url);
+  copyLink(url, "نُسخ رابط البرنامج — أرسله لمن تريد");
+});
+
+$("app-window").addEventListener("click", async () => {
+  window.open(await linkTo("app.html", view.state.doc.toString()), "_blank");
+});
+
+$("app-link").addEventListener("click", async () => {
+  copyLink(await linkTo("app.html", view.state.doc.toString()),
+    "نُسخ رابط التطبيق — من يفتحه يرى التطبيق مباشرة دون المحرر");
+});
+
+$("app-export").addEventListener("click", async () => {
+  const button = $("app-export");
+  button.disabled = true;
+  showToast("جارٍ تجهيز الموقع للتنزيل…");
+  try {
+    const { exportSite } = await import("./export.js");
+    const name = await exportSite(view.state.doc.toString(), $("ui-title").textContent);
+    showToast(`نُزّل الملف ${name}`, "success");
+  } catch (err) {
+    console.error(err);
+    showToast("تعذّر تجهيز الملف", "error");
+  } finally {
+    button.disabled = false;
   }
 });
 
@@ -572,5 +486,5 @@ $("theme").addEventListener("click", () => {
 $("run").addEventListener("click", run);
 $("stop").addEventListener("click", stop);
 
-startWorker();
+runtime.start();
 view.focus();

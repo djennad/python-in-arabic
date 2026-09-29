@@ -8,19 +8,35 @@
     afaa -i ملف.af             تشغيل ملف ثم فتح الطرفية
     afaa --translate ملف.af    عرض شيفرة بايثون المقابلة
     afaa --to-arabic ملف.py    تحويل ملف بايثون إلى أفعى
+    afaa --web ملف.af          فتح الملف كتطبيق ويب في المتصفح (لبرامج «واجهات»)
+    afaa --edit ملف.af         فتح الملف في ساحة أفعى (محرر الويب)
     afaa --vocabulary          عرض القاموس كاملًا
     afaa --version             عرض الإصدار
 """
 
+import base64
 import os
 import runpy
 import sys
+import zlib
 
 from . import __version__
 from .errors import format_exception
 from .runtime import install, run_file, run_source
 
 USAGE = __doc__
+
+# عنوان ساحة أفعى المنشورة (يمكن تغييره بمتغير البيئة AFAA_PLAYGROUND)
+PLAYGROUND_URL = "https://djennad.github.io/python-in-arabic/"
+
+
+def web_link(code, page="app.html", base=None):
+    """رابط يفتح البرنامج في ساحة أفعى. الترميز مطابق لـ web/src/share.js."""
+    base = base or os.environ.get("AFAA_PLAYGROUND") or PLAYGROUND_URL
+    compressor = zlib.compressobj(9, zlib.DEFLATED, -15)  # deflate-raw
+    data = compressor.compress(code.encode("utf-8")) + compressor.flush()
+    token = "z" + base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
+    return f"{base.rstrip('/')}/{page}#code={token}"
 
 
 def _read(path):
@@ -90,6 +106,18 @@ def main(argv=None):
         return 0
     if option in ("--vocabulary", "--قاموس"):
         print(vocabulary_markdown())
+        return 0
+    if option in ("--web", "--edit"):
+        if len(argv) < 2 or not os.path.exists(argv[1]):
+            print("الاستخدام: afaa --web ملف.af  أو  afaa --edit ملف.af", file=sys.stderr)
+            return 2
+        url = web_link(_read(argv[1]), "app.html" if option == "--web" else "")
+        print(url)
+        import webbrowser
+        try:
+            webbrowser.open(url)
+        except Exception:  # لا متصفح متاح: يكفي طباعة الرابط
+            pass
         return 0
     if option in ("--translate", "--to-arabic"):
         if len(argv) < 2:
