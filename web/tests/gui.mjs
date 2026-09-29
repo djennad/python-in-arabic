@@ -262,6 +262,40 @@ check("GUI + database: add, search, persist", rowsBefore === 3 && found.includes
   JSON.stringify([rowsBefore, found, afterReload]));
 await db.close();
 
+// 13. النماذج (ORM): مثال الطرفية، ومفكرة بالواجهة (إضافة، بحث، حذف، بقاء بعد الإغلاق)
+db = await freshPage("orm.af");
+const ormOut = await db.locator("#output").innerText();
+check("ORM example", ormOut.includes("طلب رقم 1: 3 × قلم = 120 دج") && ormOut.includes("بعد حذف القلم: المنتجات 4 والطلبات 1"),
+  JSON.stringify(ormOut.slice(-120)));
+await db.close();
+
+db = await freshPage("gui/notes.af");
+const noteCards = () => db.locator("#ui-root .ui-column .ui-card");
+const cardsBefore = await noteCards().count();
+await db.locator("#ui-root .ui-input").first().fill("شراء الخبز");
+await db.locator("#ui-root .ui-button", { hasText: "احفظ" }).click();
+await db.waitForTimeout(500);
+const cardsAfterAdd = await noteCards().count();
+await db.locator("#ui-root .ui-input").nth(2).fill("الخبز");   // البحث
+await db.waitForTimeout(500);
+const filtered = await noteCards().allInnerTexts();
+await db.locator("#ui-root .ui-input").nth(2).fill("");
+await db.waitForTimeout(400);
+// حذف أول بطاقة بزرها (دالة تلتقط الملاحظة: لامدا م=م)
+const firstTitle = (await noteCards().first().locator(".ui-card-title").innerText()).trim();
+await noteCards().first().locator(".ui-button", { hasText: "احذف" }).click();
+await db.waitForTimeout(500);
+const remaining = await noteCards().allInnerTexts();
+await db.close();
+db = await freshPage("gui/notes.af");
+const notesAfterReload = await noteCards().allInnerTexts();
+check("ORM + GUI notes: add, search, delete, persist",
+  cardsBefore === 2 && cardsAfterAdd === 3 && filtered.length === 1 && filtered[0].includes("شراء الخبز")
+  && firstTitle === "شراء الخبز" && remaining.length === 2 && !remaining.join().includes("شراء الخبز")
+  && notesAfterReload.length === 2,
+  JSON.stringify([cardsBefore, cardsAfterAdd, filtered.length, firstTitle, remaining.length, notesAfterReload.length]));
+await db.close();
+
 console.log(results.join("\n"));
 console.log("console errors:", errors.length ? errors : "none");
 await browser.close();

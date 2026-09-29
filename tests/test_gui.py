@@ -79,11 +79,14 @@ class WidgetTests(GuiTestCase):
             من واجهات استورد *
             زر("أ"، عند_الضغط=لامدا: اطبع("بلا معطيات"))
             زر("ب"، عند_الضغط=لامدا ز: اطبع("الزر:"، ز.النص))
+            لكل ع في ["ج"]:
+                زر(ع، عند_الضغط=لامدا ع=ع: اطبع("التقاط:"، ع))
         """)
-        a, b = self.ops()
+        a, b, c = self.ops()
         self.event(a["id"], "click")
         self.event(b["id"], "click")
-        self.assertEqual(self.output, "بلا معطيات\nالزر: ب\n")
+        self.event(c["id"], "click")
+        self.assertEqual(self.output, "بلا معطيات\nالزر: ب\nالتقاط: ج\n")
 
     def test_inputs_sync_values(self):
         ns = self.run_app("""
@@ -185,6 +188,31 @@ class WidgetTests(GuiTestCase):
         self.assertEqual(add["props"]["rows"][-1], ["يوسف", "17", ""])
         self.assertEqual(columns["props"], {"columns": ["الاسم"]})
         self.assertEqual(rows["props"]["rows"], [["أحمد"], ["سارة"]])
+
+    def test_table_from_orm_models(self):
+        self.run_app("""
+            من واجهات استورد *
+            من قواعد_البيانات استورد *
+            ق = قاعدة_بيانات()
+            صنف كتاب(نموذج):
+                العنوان = عمود_نص()
+                السنة = عمود_عدد_صحيح()
+            ق.أنشئ_جداول(كتاب)
+            كتاب.أنشئ(العنوان="كليلة ودمنة"، السنة=٧٥٠)
+            ك = كتاب.أنشئ(العنوان="المقدمة"، السنة=١٣٧٧)
+            ج = جدول(كتاب.رتب(كتاب.السنة))
+            ج.اعرض(كتاب.حيث(كتاب.السنة > ١٠٠٠))
+            ج.أضف_صفا(ك)
+            ف = جدول(["العنوان"]، كتاب.الكل())
+            فارغ_ = جدول(كتاب.حيث(كتاب.السنة > ٥٠٠٠))
+        """)
+        create, show, add, named, empty = self.ops()
+        self.assertEqual(create["props"]["columns"], ["المعرف", "العنوان", "السنة"])
+        self.assertEqual(create["props"]["rows"], [["1", "كليلة ودمنة", "750"], ["2", "المقدمة", "1377"]])
+        self.assertEqual(show["props"]["rows"], [["2", "المقدمة", "1377"]])
+        self.assertEqual(add["props"]["rows"][-1], ["2", "المقدمة", "1377"])
+        self.assertEqual(named["props"]["rows"], [["كليلة ودمنة"], ["المقدمة"]])
+        self.assertEqual(empty["props"], {"columns": [], "rows": []})
 
     def test_remove(self):
         self.run_app("""
