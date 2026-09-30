@@ -296,6 +296,112 @@ check("ORM + GUI notes: add, search, delete, persist",
   JSON.stringify([cardsBefore, cardsAfterAdd, filtered.length, firstTitle, remaining.length, notesAfterReload.length]));
 await db.close();
 
+// 14. لعبة الثعبان: لوحة المفاتيح تغيّر الاتجاه، والمسافة توقف اللعبة، والكتابة في الحقول لا تُحسب
+await loadExample("gui/snake.af");
+const snake = ui(".ui-canvas");
+const headColor = () => snake.evaluate((c) => {
+  // أين رأس الثعبان؟ أول خانة بلون الرأس (#4ade80)
+  const r = c.width / c.getBoundingClientRect().width;
+  const ctx = c.getContext("2d");
+  for (let y = 0; y < 15; y++) for (let x = 0; x < 20; x++) {
+    const [R, G, B] = ctx.getImageData(Math.round((x * 20 + 10) * r), Math.round((y * 20 + 10) * r), 1, 1).data;
+    if (R === 74 && G === 222 && B === 128) return [x, y];
+  }
+  return null;
+});
+await page.waitForTimeout(400);
+const startHead = await headColor();
+await page.keyboard.press("ArrowDown");
+await page.waitForTimeout(700);
+const movedHead = await headColor();
+await page.keyboard.press(" ");
+await page.waitForTimeout(300);
+const pausedA = await headColor();
+await page.waitForTimeout(500);
+const pausedB = await headColor();
+check("keyboard game (snake)", startHead && movedHead && movedHead[1] > startHead[1]
+  && pausedA && pausedA.join() === pausedB.join(), JSON.stringify([startHead, movedHead, pausedA, pausedB]));
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/gui-snake.png` });
+
+// 15. الرسم الحر بالسحب
+await loadExample("gui/paint.af");
+const paint = ui(".ui-canvas");
+const paintBox = await paint.boundingBox();
+const paintPixel = (x, y) => paint.evaluate((c, [x, y]) => {
+  const r = c.width / c.getBoundingClientRect().width;
+  return [...c.getContext("2d").getImageData(Math.round(x * r), Math.round(y * r), 1, 1).data];
+}, [x, y]);
+await page.mouse.move(paintBox.x + 100, paintBox.y + 100);
+await page.mouse.down();
+for (let i = 1; i <= 20; i++) await page.mouse.move(paintBox.x + 100 + i * 10, paintBox.y + 100);
+await page.mouse.up();
+await page.waitForTimeout(500);
+const stroke = await paintPixel(200, 100);
+check("drag to draw (paint)", stroke[0] > 100 && stroke[2] > 150 && stroke[1] < 100, JSON.stringify(stroke));
+
+// 16. لوحة المتجر: الرسوم، والألسنة، والفرز، والبحث، والصفحات، والاختيار، والنافذة، والوضع الداكن
+await loadExample("gui/dashboard.af");
+const charts = await ui(".ui-chart svg").count();
+const lines = await ui(".ui-chart-line").count();
+await ui(".ui-radio input").nth(1).check();
+await page.waitForTimeout(400);
+const bars = await ui(".ui-chart").first().locator(".ui-chart-mark").count();
+await ui(".ui-tab", { hasText: "المنتجات" }).click();
+await ui("th", { hasText: "السعر" }).click();
+await ui("th", { hasText: "السعر" }).click();
+const topPrice = await ui("tbody tr td").nth(2).innerText();
+const pagerText = await ui(".ui-table-pager span").innerText();
+await ui(".ui-table-search").fill("زيت");
+const searchHits = await ui("tbody tr").count();
+await ui(".ui-table-search").fill("");
+await ui("tbody tr").first().click();
+await ui("dialog[open]").waitFor({ timeout: 5000 });
+const dialogTitle = await ui("dialog[open] .ui-dialog-title").innerText();
+await ui("dialog[open] .ui-number").first().fill("12345");
+await page.waitForTimeout(200);
+await ui("dialog[open] .ui-button", { hasText: "احفظ" }).click();
+await page.waitForTimeout(500);
+const savedRow = (await ui("tbody tr").first().innerText()).replace(/\s+/g, " ");
+await ui(".ui-switch input").click();
+await page.waitForTimeout(400);
+const darkBg = await page.locator(".ui-surface").evaluate((e) => getComputedStyle(e).backgroundColor);
+check("dashboard: charts, tabs, table, dialog, theme",
+  charts === 3 && lines === 3 && bars === 18 && topPrice === "9000" && pagerText.includes("من 2")
+  && searchHits === 1 && dialogTitle.includes("زربية") && savedRow.includes("12345")
+  && await ui("dialog[open]").count() === 0 && darkBg !== "rgb(246, 247, 249)",
+  JSON.stringify([charts, lines, bars, topPrice, pagerText, searchHits, dialogTitle, savedRow, darkBg]));
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/gui-dashboard.png` });
+
+// 17. رفع ملف CSV وتنزيل الجدول
+await loadExample("gui/csv.af");
+const csvPath = join(mkdtempSync(join(tmpdir(), "afaa-csv-")), "علامات.csv");
+writeFileSync(csvPath, "﻿المادة,العلامة\nرياضيات,17\nفيزياء,14\n");
+await ui(".ui-file input").setInputFiles(csvPath);
+await page.waitForTimeout(1000);
+const csvRows = (await ui("tbody tr").allInnerTexts()).map((t) => t.replace(/\s+/g, " "));
+const [csvDownload] = await Promise.all([page.waitForEvent("download"), ui(".ui-button", { hasText: "نزّل" }).click()]);
+const downloaded = readFileSync(await csvDownload.path(), "utf8");
+check("CSV upload + download", csvRows.join("|") === "رياضيات 17|فيزياء 14"
+  && csvDownload.suggestedFilename() === "البيانات.csv" && downloaded.includes("فيزياء,14"),
+  JSON.stringify([csvRows, csvDownload.suggestedFilename(), downloaded]));
+
+// 18. المواعيد: التاريخ والوقت والاختيار، والحفظ في قاعدة البيانات، وتأكيد الحذف
+await loadExample("gui/appointments.af");
+await ui(".ui-input").first().fill("اجتماع الفريق");
+await ui(".ui-time").fill("11:15");
+await ui(".ui-radio input").first().check();
+await page.waitForTimeout(200);
+await ui(".ui-button", { hasText: "احجز" }).click();
+await page.waitForTimeout(500);
+await ui(".ui-tab").nth(1).click();
+const booked = (await ui("tbody tr").allInnerTexts()).map((t) => t.replace(/\s+/g, " "));
+const row = ui("tbody tr", { hasText: "اجتماع الفريق" });
+await row.click();
+await ui("dialog[open] .ui-button", { hasText: "نعم" }).click();
+await page.waitForTimeout(500);
+check("date/time inputs + confirm dialog", booked.some((r) => r.includes("اجتماع الفريق") && r.includes("11:15") && r.includes("عمل"))
+  && await ui("tbody tr", { hasText: "اجتماع الفريق" }).count() === 0, JSON.stringify(booked));
+
 console.log(results.join("\n"));
 console.log("console errors:", errors.length ? errors : "none");
 await browser.close();

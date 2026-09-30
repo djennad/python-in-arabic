@@ -11,7 +11,7 @@ import json
 
 __all__ = [
     "enabled", "active", "new_id", "emit", "emit_draw", "register", "unregister",
-    "flush", "dispatch", "reset", "call_handler",
+    "flush", "dispatch", "reset", "call_handler", "on_reset",
 ]
 
 # يُفعَّل في المتصفح (أو في الاختبارات). خارجه تُرفع رسالة توضيحية.
@@ -22,6 +22,7 @@ active = False
 _queue = []
 _registry = {}
 _next_id = 0
+_reset_hooks = []
 
 NOT_AVAILABLE = (
     "مكتبة «واجهات» تعمل في المتصفح فقط.\n"
@@ -73,6 +74,11 @@ def flush():
     return ops
 
 
+def on_reset(callback):
+    """دالة تُستدعى عند كل بداية جديدة (تمسح بها المكتبة حالتها الداخلية)."""
+    _reset_hooks.append(callback)
+
+
 def reset():
     """يبدأ من جديد: يُستدعى قبل كل تشغيل."""
     global active, _next_id
@@ -80,6 +86,8 @@ def reset():
     _registry.clear()
     _next_id = 0
     active = False
+    for callback in _reset_hooks:
+        callback()
     emit({"op": "reset"})
 
 

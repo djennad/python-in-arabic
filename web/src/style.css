@@ -33,7 +33,7 @@ body {
 
 .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-button:not(.ui-button) {
+button:not(.ui-button):where(:not(.ui-root *)) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -45,20 +45,20 @@ button:not(.ui-button) {
   cursor: pointer;
   white-space: nowrap;
 }
-button:not(.ui-button):hover:not(:disabled) { background: var(--surface-2); }
-button:not(.ui-button):disabled { opacity: 0.55; cursor: not-allowed; }
-button:not(.ui-button):focus-visible, select:focus-visible, input:focus-visible {
+button:not(.ui-button):where(:not(.ui-root *)):hover:not(:disabled) { background: var(--surface-2); }
+button:not(.ui-button):where(:not(.ui-root *)):disabled { opacity: 0.55; cursor: not-allowed; }
+button:not(.ui-button):where(:not(.ui-root *)):focus-visible, select:focus-visible, input:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
-button:not(.ui-button) svg { width: 16px; height: 16px; fill: currentColor; }
-button:not(.ui-button).primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
-button:not(.ui-button).primary:hover:not(:disabled) { background: var(--accent-hover); }
-button:not(.ui-button).danger { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
-button:not(.ui-button).danger:hover { filter: brightness(1.08); background: var(--danger); }
-button:not(.ui-button).ghost { background: transparent; }
-button:not(.ui-button).small { height: 30px; padding: 0 10px; font-size: 13px; }
-button:not(.ui-button).icon-only { padding: 0 9px; }
+button:not(.ui-button):where(:not(.ui-root *)) svg { width: 16px; height: 16px; fill: currentColor; }
+button:not(.ui-button):where(:not(.ui-root *)).primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button:not(.ui-button):where(:not(.ui-root *)).primary:hover:not(:disabled) { background: var(--accent-hover); }
+button:not(.ui-button):where(:not(.ui-root *)).danger { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
+button:not(.ui-button):where(:not(.ui-root *)).danger:hover { filter: brightness(1.08); background: var(--danger); }
+button:not(.ui-button):where(:not(.ui-root *)).ghost { background: transparent; }
+button:not(.ui-button):where(:not(.ui-root *)).small { height: 30px; padding: 0 10px; font-size: 13px; }
+button:not(.ui-button):where(:not(.ui-root *)).icon-only { padding: 0 9px; }
 
 .select select {
   height: 36px;
