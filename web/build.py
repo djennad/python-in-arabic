@@ -60,8 +60,8 @@ def build_vocabulary():
 
 
 EXAMPLE_ORDER = ["hello.af", "guess.af", "primes.af", "bank.af", "database.af", "orm.af", "tour.af",
-                 "counter.af", "calculator.af", "todo.af", "students.af", "notes.af", "drawing.af", "clock.af",
-                 "dashboard.af", "chat.af"]
+                 "counter.af", "calculator.af", "todo.af", "students.af", "notes.af", "dashboard.af",
+                 "appointments.af", "csv.af", "snake.af", "paint.af", "drawing.af", "clock.af", "chat.af"]
 EXAMPLE_GROUPS = [("", "أمثلة اللغة"), ("gui", "تطبيقات الواجهات"),
                   ("streamlit", "مواقع ستريمليت")]
 

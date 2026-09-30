@@ -212,7 +212,7 @@ class WidgetTests(GuiTestCase):
         self.assertEqual(show["props"]["rows"], [["2", "المقدمة", "1377"]])
         self.assertEqual(add["props"]["rows"][-1], ["2", "المقدمة", "1377"])
         self.assertEqual(named["props"]["rows"], [["كليلة ودمنة"], ["المقدمة"]])
-        self.assertEqual(empty["props"], {"columns": [], "rows": []})
+        self.assertEqual((empty["props"]["columns"], empty["props"]["rows"]), ([], []))
 
     def test_remove(self):
         self.run_app("""
@@ -234,7 +234,7 @@ class CanvasTests(GuiTestCase):
             ل.ارسم_نصا("مرحبا"، ١٠٠، ٥٠)
         """)
         create, draw = self.ops()
-        self.assertEqual(create["props"], {"width": 200, "height": 100, "background": "#111827"})
+        self.assertEqual(create["props"], {"width": 200, "height": 100, "background": "#111827", "listen": []})
         self.assertEqual(draw["op"], "draw")
         self.assertEqual([c[0] for c in draw["cmds"]], ["line", "circle", "text"])
         self.assertEqual(draw["cmds"][0], ["line", 0, 0, 10, 10, "#dc2626", 2])
@@ -351,6 +351,209 @@ class WebLinkTests(unittest.TestCase):
         data = base64.urlsafe_b64decode(token + "=" * (-len(token) % 4))
         self.assertEqual(zlib.decompress(data, -15).decode("utf-8"), code)
         self.assertTrue(web_link(code, "", base="https://x.org").startswith("https://x.org/#code="))
+
+
+class InteractionTests(GuiTestCase):
+    def test_canvas_mouse_events_and_drawing(self):
+        ns = self.run_app("""
+            من واجهات استورد *
+            ل = لوحة_رسم(عند_السحب=لامدا س، ص: اطبع("سحب"، س، ص))
+            ل.عند_الإفلات = لامدا: اطبع("إفلات")
+            ل.عند_التحريك = لامدا س، ص: اطبع("حركة"، س)
+            ل.ارسم_صورة("صورة.png"، ١، ٢، العرض=٣٠)
+            ل.ارسم_مستطيلا(٠، ٠، ١٠، ١٠، الزوايا=٤)
+            ل.ارسم_نصا("⭐"، ٥، ٥، عريض=صح)
+        """)
+        create, listen1, listen2, draw = self.ops()
+        self.assertEqual(create["props"]["listen"], ["drag"])
+        self.assertEqual(listen2["props"]["listen"], ["move", "drag", "up"])
+        self.assertEqual(draw["cmds"][0], ["image", "صورة.png", 1, 2, 30, None])
+        self.assertEqual(draw["cmds"][1][-1], 4)
+        self.assertIs(draw["cmds"][2][-1], True)
+        cid = create["id"]
+        self.event(cid, "move", {"x": 3, "y": 4, "pressed": False})
+        self.event(cid, "move", {"x": 5, "y": 6, "pressed": True})
+        self.event(cid, "up", {"x": 5, "y": 6})
+        self.assertEqual(self.output, "حركة 3\nحركة 5\nسحب 5 6\nإفلات\n")
+        self.assertIsNotNone(ns["ل"].عند_الإفلات)
+
+    def test_keyboard(self):
+        self.run_app("""
+            من واجهات استورد *
+            @عند_ضغط_مفتاح
+            دالة ضغط(المفتاح):
+                اطبع("ضغط"، المفتاح، مفتاح_مضغوط("يمين"))
+            عند_رفع_مفتاح(لامدا م: اطبع("رفع"، م))
+        """)
+        (keys,) = self.ops()
+        self.assertEqual(keys["op"], "keys")
+        self.event(keys["id"], "keydown", {"key": "ArrowRight"})
+        self.event(keys["id"], "keydown", {"key": "B"})
+        self.event(keys["id"], "keyup", {"key": "ArrowRight"})
+        self.event(keys["id"], "keydown", {"key": " "})
+        self.event(keys["id"], "blur")
+        self.assertEqual(self.output, "ضغط يمين True\nضغط b True\nرفع يمين\nضغط مسافة False\n")
+
+    def test_keyboard_state_resets_between_runs(self):
+        self.run_app("من واجهات استورد *\nعند_ضغط_مفتاح(اطبع)\n")
+        self.assertEqual(self.ops()[0]["op"], "keys")
+        gui_bridge.reset()
+        gui_bridge.flush()
+        # تشغيل جديد: لوحة مفاتيح جديدة تُسجَّل في الصفحة من جديد
+        self.run_app("من واجهات استورد *\nعند_ضغط_مفتاح(اطبع)\n")
+        self.assertEqual(self.ops()[0]["op"], "keys")
+
+    def test_choice_widgets(self):
+        ns = self.run_app("""
+            من واجهات استورد *
+            استورد datetime
+            ر = اختيار_واحد(["أ"، "ب"]، عند_التغيير=لامدا ق: اطبع("اختيار"، ق))
+            م = مفتاح_تبديل("ليلي"، مفعل=صح)
+            ت = حقل_تاريخ(datetime.date(2026، ١٠، ١))
+            و_ = حقل_وقت("09:30")
+            ل = منتقي_لون("أحمر")
+        """)
+        radio, switch, date, time, color = self.ops()
+        self.assertEqual((radio["kind"], radio["props"]["value"]), ("radio", "أ"))
+        self.assertEqual((switch["kind"], switch["props"]["value"]), ("switch", True))
+        self.assertEqual(date["props"]["value"], "2026-10-01")
+        self.assertEqual(time["props"]["value"], "09:30:00")
+        self.assertEqual(color["props"]["value"], "#dc2626")
+        self.event(radio["id"], "change", "ب")
+        self.event(date["id"], "change", "2026-12-25")
+        self.event(date["id"], "change", "")
+        self.event(time["id"], "change", "18:05")
+        self.event(color["id"], "change", "#123456")
+        self.assertEqual(self.output, "اختيار ب\n")
+        self.assertIsNone(ns["ت"].القيمة)
+        self.assertEqual(ns["و_"].القيمة.hour, 18)
+        self.assertEqual(ns["ل"].القيمة, "#123456")
+        import datetime
+        ns["ت"].القيمة = datetime.date(2027, 1, 2)
+        self.assertEqual(self.ops()[-1]["props"], {"value": "2027-01-02"})
+
+    def test_file_upload_and_download(self):
+        import base64
+        self.run_app("""
+            من واجهات استورد *
+            دالة وصل(ملف):
+                اطبع(ملف.الاسم، ملف.الحجم، ملف.كصفوف())
+            رفع_ملف(عند_الرفع=وصل، الأنواع=".csv")
+            نزل_ملف("طلاب.csv"، [{"الاسم": "أحمد"، "العمر": ١٦}])
+            نزل_ملف("ملاحظة.txt"، "سلام")
+        """)
+        upload, csv_file, text_file = self.ops()
+        self.assertEqual(upload["props"]["accept"], ".csv")
+        data = base64.b64encode("﻿الاسم؛العمر\nسارة؛15\n".encode()).decode()
+        self.event(upload["id"], "upload", [{"name": "ط.csv", "type": "text/csv", "size": 9, "data": data}])
+        self.assertEqual(self.output, "ط.csv 9 [{'الاسم': 'سارة', 'العمر': '15'}]\n")
+        self.assertEqual(csv_file["type"], "text/csv;charset=utf-8")
+        self.assertEqual(base64.b64decode(csv_file["data"]).decode(), "﻿الاسم,العمر\r\nأحمد,16\r\n")
+        self.assertEqual(base64.b64decode(text_file["data"]).decode(), "سلام")
+
+    def test_tabs(self):
+        ns = self.run_app("""
+            من واجهات استورد *
+            أ، ب = ألسنة(["الأول"، "الثاني"]، عند_التغيير=لامدا ع: اطبع("لسان"، ع))
+            مع ب:
+                تسمية("داخل")
+            ج = ألسنة()
+            ج.لسان("جديد")
+            ج.الحالي = ٠
+        """)
+        ops = self.ops()
+        tabs, first, second, label = ops[:4]
+        self.assertEqual([o["kind"] for o in ops[:4]], ["tabs", "tab", "tab", "label"])
+        self.assertEqual((first["parent"], label["parent"]), (tabs["id"], second["id"]))
+        self.event(tabs["id"], "change", 1)
+        self.assertEqual(self.output, "لسان الثاني\n")
+        self.assertEqual(ns["أ"].العنوان, "الأول")
+
+    def test_dialog_and_confirm(self):
+        ns = self.run_app("""
+            من واجهات استورد *
+            ن = نافذة_حوار("تعديل"، عند_الإغلاق=لامدا: اطبع("أغلقت"))
+            مع ن:
+                تسمية("داخل النافذة")
+            ن.افتح()
+            مع عمودي():
+                أكد("متأكد؟"، لامدا: اطبع("موافق"))
+        """)
+        ops = self.ops()
+        dialog = ops[0]
+        self.assertEqual((dialog["kind"], dialog["props"]["open"]), ("dialog", False))
+        self.assertEqual(ops[2]["props"], {"open": True})
+        confirm = [o for o in ops if o.get("kind") == "dialog"][1]
+        self.assertIsNone(confirm["parent"])     # في الصفحة، لا داخل الحاوية المفتوحة
+        yes = [o for o in ops if o.get("props", {}).get("text") == "نعم"][0]
+        self.event(dialog["id"], "close")
+        ops = self.event(yes["id"], "click")
+        self.assertEqual(self.output, "أغلقت\nموافق\n")
+        self.assertIn({"op": "remove", "id": confirm["id"]}, ops)
+        self.assertFalse(ns["ن"].مفتوحة)
+
+    def test_chart_data_shapes(self):
+        ns = self.run_app("""
+            من واجهات استورد *
+            أ = رسم_بياني({"يناير": ١٢، "فبراير": "١٩"})
+            ب = رسم_بياني({"٢٠٢٥": [١، ٢]، "٢٠٢٦": [٣، لاشيء]}، التسميات=["س١"، "س٢"]، النوع="خطي")
+            ج = رسم_بياني([{"الصنف": "كتب"، "العدد": ٣، "السعر": ٥}]، س="الصنف"، ص="العدد"، النوع="حلقي")
+            ج.اعرض([{"الصنف": "أقلام"، "العدد": ٧، "السعر": ١}])
+            أ.النوع = "مساحي"
+        """)
+        a, b, c, update, kind = self.ops()
+        self.assertEqual((a["props"]["labels"], a["props"]["series"]),
+                         (["يناير", "فبراير"], [{"name": "", "values": [12.0, 19.0]}]))
+        self.assertEqual(b["props"]["chart"], "line")
+        self.assertEqual(b["props"]["series"][1], {"name": "٢٠٢٦", "values": [3.0, None]})
+        self.assertEqual((c["props"]["chart"], c["props"]["series"]), ("donut", [{"name": "العدد", "values": [3.0]}]))
+        self.assertEqual(update["props"]["labels"], ["أقلام"])
+        self.assertEqual(kind["props"], {"chart": "area"})
+
+    def test_table_selection_returns_original_rows(self):
+        self.run_app("""
+            من واجهات استورد *
+            من قواعد_البيانات استورد *
+            ق = قاعدة_بيانات()
+            صنف كتاب(نموذج):
+                العنوان = عمود_نص()
+            ق.أنشئ_جداول(كتاب)
+            كتاب.أنشئ(العنوان="أ")
+            كتاب.أنشئ(العنوان="ب")
+            ج = جدول(كتاب.الكل()، قابل_للبحث=صح، حجم_الصفحة=١٠)
+            ج.عند_الاختيار = لامدا ك: اطبع(نوع(ك).__اسم__، ك.العنوان)
+        """)
+        table, selectable = self.ops()
+        self.assertEqual((table["props"]["searchable"], table["props"]["pageSize"]), (True, 10))
+        self.assertEqual(selectable["props"], {"selectable": True})
+        self.event(table["id"], "select", 1)
+        self.event(table["id"], "select", 99)
+        self.assertEqual(self.output, "كتاب ب\n")
+
+    def test_style_and_theme(self):
+        self.run_app("""
+            من واجهات استورد *
+            تسمية("أ").نسق(الحدود="٢ أحمر"، الزوايا=٨، الظل=صح، الهامش=٤، الشفافية=٠.٥، الخط="ثابت")
+            تسمية("ب").نسق(الحدود=صح)
+            سمة_الصفحة(اللون="بنفسجي"، الوضع="داكن"، الخط=١٨)
+        """)
+        ops = self.ops()
+        self.assertEqual(ops[1]["props"]["style"], {"border": "2px solid #dc2626", "radius": 8, "shadow": True,
+                                                    "margin": 4, "opacity": 0.5, "font": "mono"})
+        self.assertEqual(ops[3]["props"]["style"], {"border": "1px solid var(--border)"})
+        self.assertEqual(ops[4], {"op": "page", "props": {"theme": {
+            "accent": "#9333ea", "background": None, "fontSize": 18, "mode": "dark"}}})
+
+    def test_fetch_json_locally(self):
+        import pathlib
+        with tempfile.TemporaryDirectory() as folder:
+            path = pathlib.Path(folder, "بيانات.json")
+            path.write_text('{"العدد": 3}', encoding="utf-8")
+            self.run_app(f"""
+                من واجهات استورد *
+                اطبع(اجلب_بيانات({path.as_uri()!r})["العدد"])
+            """)
+        self.assertEqual(self.output, "3\n")
 
 
 class OutsideBrowserTests(unittest.TestCase):

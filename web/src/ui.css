@@ -12,6 +12,7 @@
 }
 
 .ui-root [hidden] { display: none !important; }
+.ui-root:focus { outline: none; }
 
 /* اتجاه كل نص من محتواه: «-1» يبقى «-1» والعربية من اليمين، مع بقاء المحاذاة يمينًا */
 .ui-heading, .ui-label, .ui-link, .ui-card-title, .ui-checkbox span,
@@ -149,4 +150,150 @@ h4.ui-heading { font-size: 17px; }
   border: 1px solid var(--border);
   border-radius: 10px;
   touch-action: manipulation;
+}
+
+/* اختيار واحد ومفتاح التبديل */
+.ui-radio { display: flex; flex-direction: column; gap: 6px; }
+.ui-radio.ui-radio-row { flex-direction: row; flex-wrap: wrap; gap: 6px 18px; }
+.ui-radio label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.ui-radio input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+.ui-radio input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ui-switch input {
+  appearance: none;
+  width: 40px;
+  height: 22px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--border);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex: 0 0 auto;
+}
+.ui-switch input::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  inset-inline-start: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: inset-inline-start 0.15s;
+}
+.ui-switch input:checked { background: var(--accent); }
+.ui-switch input:checked::after { inset-inline-start: 21px; }
+
+/* التاريخ والوقت واللون */
+.ui-date, .ui-time { direction: ltr; text-align: right; }
+.ui-color { width: 64px; padding: 4px; cursor: pointer; }
+.ui-row > .ui-date, .ui-row > .ui-time { flex: 0 1 180px; }
+.ui-row > .ui-color { flex: 0 0 auto; width: 64px; }
+
+/* رفع الملفات: زر يخفي حقل الملف الأصلي */
+.ui-file { position: relative; align-self: flex-start; }
+.ui-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.ui-file:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* الألسنة */
+.ui-tabs { display: flex; flex-direction: column; gap: 12px; }
+.ui-tabs-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.ui-root .ui-tab {
+  padding: 8px 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ui-root .ui-tab:hover { color: var(--text); }
+.ui-root .ui-tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.ui-root .ui-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.ui-tabs-body, .ui-tab-panel { display: flex; flex-direction: column; gap: 12px; }
+
+/* النافذة المنبثقة */
+.ui-dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--ui-font);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+.ui-dialog::backdrop { background: rgba(15, 23, 42, 0.45); }
+.ui-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px 0;
+}
+.ui-dialog-title { margin: 0; margin-inline-end: auto; font-size: 18px; font-weight: 600; }
+.ui-dialog-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+.ui-dialog-close:hover { background: var(--surface-2); color: var(--text); }
+.ui-dialog-body { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 16px; }
+
+/* الجدول: البحث والفرز والاختيار والصفحات */
+.ui-table-box { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.ui-table th.ui-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.ui-table th.ui-sortable::after { content: " ↕"; color: var(--muted); font-size: 12px; }
+.ui-table th[data-sort="asc"]::after { content: " ▲"; color: var(--accent); }
+.ui-table th[data-sort="desc"]::after { content: " ▼"; color: var(--accent); }
+.ui-table-selectable tbody tr { cursor: pointer; }
+.ui-table-selectable tbody tr:hover td { background: var(--surface-2); }
+.ui-table tbody tr.ui-selected td { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.ui-table tbody tr:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.ui-table-empty { text-align: center !important; color: var(--muted); }
+.ui-table-pager { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 14px; color: var(--muted); }
+.ui-table-pager .ui-button { min-height: 32px; padding: 0 12px; }
+
+/* الرسوم البيانية */
+.ui-chart { margin: 0; display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.ui-chart-title { font-weight: 600; font-size: 16px; }
+.ui-chart-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); }
+.ui-chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ui-chart-legend i, .ui-chart-tip i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.ui-chart-tip i { margin-inline-end: 6px; }
+.ui-chart-plot { position: relative; width: 100%; direction: ltr; }
+.ui-chart-svg { display: block; overflow: visible; }
+.ui-chart-grid { stroke: var(--border); stroke-width: 1; opacity: 0.6; }
+.ui-chart-base { stroke: var(--muted); stroke-width: 1; }
+.ui-chart-axis { fill: var(--muted); font-size: 12px; font-family: var(--ui-font); }
+.ui-chart-total { fill: var(--text); font-size: 20px; font-weight: 600; font-family: var(--ui-font); }
+.ui-chart-mark { stroke: var(--surface); stroke-width: 2; }
+.ui-chart-mark:hover { filter: brightness(1.08); }
+.ui-chart-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ui-chart-area { opacity: 0.18; }
+.ui-chart-dot { stroke: var(--surface); stroke-width: 2; }
+.ui-chart-cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.ui-chart-tip {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  direction: rtl;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  white-space: nowrap;
 }
